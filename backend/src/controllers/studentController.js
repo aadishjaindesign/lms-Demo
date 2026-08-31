@@ -1,0 +1,68 @@
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import Student from '../models/Student.js';
+
+export const getStudents = async (req, res) => {
+  try {
+    const students = await Student.find().select('-password').sort({ createdAt: -1 });
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+};
+
+export const getStudentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const student = await Student.findById(id).select('-password');
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.status(200).json(student);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch student details' });
+  }
+};
+
+export const createStudent = async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+    if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
+
+    const studentId = `STU-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const rawPassword = crypto.randomBytes(4).toString('hex');
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    const student = await Student.create({
+      studentId, name, phone, password: hashedPassword, status: 'active', assignedCourses: []
+    });
+
+    res.status(201).json({ success: true, studentId: student.studentId, password: rawPassword, name: student.name });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create student' });
+  }
+};
+
+export const updateStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let updateData = { ...req.body };
+    if (updateData.password) updateData.password = await bcrypt.hash(updateData.password, 10);
+
+    const student = await Student.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    res.status(200).json(student);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update student' });
+  }
+};
+
+export const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const student = await Student.findByIdAndDelete(id);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete student' });
+  }
+};
