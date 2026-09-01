@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 const router = express.Router();
 
 const extractUser = (req, res, next) => {
-  const token = req.cookies.token;
+  const token = req.cookies.student_token || req.cookies.admin_token || req.cookies.token;
   if (token) {
     try {
       req.user = jwt.verify(token, process.env.JWT_SECRET || 'default_jwt_secret');

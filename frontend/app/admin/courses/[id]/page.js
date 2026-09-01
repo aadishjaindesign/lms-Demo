@@ -7,6 +7,15 @@ import { fetchApi, API_URL } from "@/lib/api";
 export default function CourseDetailsPage() {
   const { id } = useParams();
   const [course, setCourse] = useState(null);
+  
+  const getOptimizedVideoUrl = (url) => {
+    if (!url) return '';
+    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+      // Apply automatic format (f_auto) and quality (q_auto) selection to speed up delivery
+      return url.replace('/upload/', '/upload/f_auto,q_auto/');
+    }
+    return url;
+  };
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -161,10 +170,10 @@ export default function CourseDetailsPage() {
               </button>
             </div>
             <video 
+              src={getOptimizedVideoUrl(playingVideo.secureUrl)} 
               controls 
               autoPlay 
               className="w-full max-h-[80vh] bg-black"
-              src={playingVideo.secureUrl}
             >
               Your browser does not support the video tag.
             </video>
@@ -181,9 +190,10 @@ export default function CourseDetailsPage() {
 function UploadVideoModal({ courseId, onClose, onSuccess }) {
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("SELECTED"); // SELECTED, UPLOADING, PROCESSING, COMPLETED, FAILED
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -192,45 +202,159 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
       return;
     }
 
-    setLoading(true);
+    setStatus("UPLOADING");
     setError("");
     setUploadProgress(0);
+    setUploadedBytes(0);
 
-    const formData = new FormData();
-    formData.append("title", title);
-    formData.append("video", file);
+    try {
+      // 1. Get Signature and Config
+      const sigRes = await fetchApi(`/courses/${courseId}/videos/signature`);
+      if (!sigRes.ok) throw new Error("Failed to get upload signature");
+      const sigData = await sigRes.json();
+      const { signature, timestamp, cloudName, apiKey, folder, chunkSize } = sigData;
 
-    const xhr = new XMLHttpRequest();
-    
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percentComplete = Math.round((event.loaded / event.total) * 100);
-        setUploadProgress(percentComplete);
-      }
-    };
+      // 2. Prepare Cloudinary Upload
+      const uniqueUploadId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const totalSize = file.size;
+      const totalChunks = Math.ceil(totalSize / chunkSize);
 
-    xhr.onload = () => {
-      setLoading(false);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onSuccess();
-      } else {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          setError(data.error || "Failed to upload video");
-        } catch {
-          setError("Failed to upload video");
+      let publicId = null;
+      let secureUrl = null;
+      let duration = null;
+      
+      let uploadedSoFar = 0;
+
+      // 3. Upload Chunks
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, totalSize);
+        const chunk = file.slice(start, end);
+
+        // Development logging as requested
+        console.log(`\n--- Uploading Chunk ${chunkIndex + 1}/${totalChunks} ---`);
+        console.log(`Chunk start: ${start}`);
+        console.log(`Chunk end: ${end}`);
+        console.log(`Expected chunk size: ${end - start}`);
+        console.log(`Actual blob.size: ${chunk.size}`);
+        console.log(`Total file size: ${totalSize}`);
+        console.log(`Content-Range: bytes ${start}-${end - 1}/${totalSize}`);
+        console.log(`Upload ID: ${uniqueUploadId}`);
+        console.log(`----------------------------------\n`);
+        
+        let chunkRetries = 0;
+        let chunkSuccess = false;
+
+        while (!chunkSuccess && chunkRetries < 3) {
+          try {
+            await new Promise((resolve, reject) => {
+              const formData = new FormData();
+              // Cloudinary requires authentication parameters to be appended before the file payload
+              formData.append("api_key", apiKey);
+              formData.append("timestamp", timestamp);
+              formData.append("signature", signature);
+              formData.append("folder", folder);
+              formData.append("resource_type", "video"); // Explicitly pass resource type
+              // The file chunk MUST be the last field in the multipart body
+              formData.append("file", chunk, file.name);
+
+              const xhr = new XMLHttpRequest();
+              // The /video/upload endpoint natively handles video resource types
+              xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`);
+              xhr.setRequestHeader("X-Unique-Upload-Id", uniqueUploadId);
+              xhr.setRequestHeader("Content-Range", `bytes ${start}-${end - 1}/${totalSize}`);
+
+              xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                  const currentTotalUploaded = uploadedSoFar + event.loaded;
+                  setUploadedBytes(currentTotalUploaded);
+                  setUploadProgress(Math.round((currentTotalUploaded / totalSize) * 100));
+                }
+              };
+
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+                  if (chunkIndex === totalChunks - 1) {
+                    publicId = response.public_id;
+                    secureUrl = response.secure_url;
+                    duration = response.duration;
+                  }
+                  resolve();
+                } else {
+                  let errorMsg = `HTTP ${xhr.status} ${xhr.statusText} - `;
+                  const cldError = xhr.getResponseHeader('X-Cld-Error');
+                  if (cldError) errorMsg += ` X-Cld-Error: ${cldError}`;
+                  try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    if (errorResponse.error && errorResponse.error.message) {
+                      errorMsg += ` Message: ${errorResponse.error.message}`;
+                    } else {
+                      errorMsg += ` Body: ${xhr.responseText}`;
+                    }
+                  } catch (e) {
+                    errorMsg += ` Body: ${xhr.responseText}`;
+                  }
+                  reject(new Error(errorMsg));
+                }
+              };
+
+              xhr.onerror = () => reject(new Error("Network error during chunk upload"));
+              xhr.send(formData);
+            });
+            chunkSuccess = true;
+          } catch (err) {
+            chunkRetries++;
+            console.error(`Chunk ${chunkIndex + 1} attempt ${chunkRetries} failed:`, err.message);
+            if (chunkRetries >= 3) {
+              throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks} after 3 attempts. Last error: ${err.message}`);
+            }
+            // Add a small delay before retry
+            await new Promise(r => setTimeout(r, 2000));
+          }
         }
+        uploadedSoFar = end;
       }
-    };
 
-    xhr.onerror = () => {
-      setLoading(false);
-      setError("An unexpected error occurred during upload");
-    };
+      setStatus("PROCESSING");
+      
+      // 4. Save metadata to backend
+      const saveRes = await fetchApi(`/courses/${courseId}/videos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: "", 
+          publicId,
+          secureUrl,
+          duration,
+        }),
+      });
 
-    xhr.open("POST", `${API_URL}/courses/${courseId}/videos`);
-    xhr.withCredentials = true; // IMPORTANT for cookies (auth)
-    xhr.send(formData);
+      if (!saveRes.ok) {
+        const errorData = await saveRes.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save video metadata");
+      }
+
+      setStatus("COMPLETED");
+      setTimeout(() => {
+        onSuccess();
+      }, 1000);
+      
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "An unexpected error occurred during upload");
+      setStatus("FAILED");
+    }
+  };
+
+  const formatBytes = (bytes, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
   return (
@@ -238,7 +362,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <h2 className="text-xl font-bold text-gray-900">Upload Video</h2>
-          <button onClick={onClose} disabled={loading} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} disabled={status === "UPLOADING" || status === "PROCESSING"} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -251,7 +375,8 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
             <input 
               type="text" required
               value={title} onChange={e => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#c71e22] focus:border-[#c71e22] focus:outline-none transition-shadow"
+              disabled={status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED"}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#c71e22] focus:border-[#c71e22] focus:outline-none transition-shadow disabled:bg-gray-100 disabled:cursor-not-allowed"
               placeholder="e.g., Introduction to Module 1"
             />
           </div>
@@ -261,14 +386,18 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
             <div className={`border-2 border-dashed ${file ? 'border-[#c71e22] bg-red-50' : 'border-gray-300'} rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative overflow-hidden`}>
               <input 
                 type="file" required accept="video/mp4,video/x-m4v,video/*"
-                onChange={e => setFile(e.target.files[0])}
-                disabled={loading}
+                onChange={e => {
+                    setFile(e.target.files[0]);
+                    setStatus("SELECTED");
+                    setError("");
+                }}
+                disabled={status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED"}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               
-              {loading && uploadProgress > 0 && (
+              {(status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED") && uploadProgress > 0 && (
                 <div 
-                  className="absolute bottom-0 left-0 h-1 bg-[#c71e22] transition-all duration-300" 
+                  className={`absolute bottom-0 left-0 h-1 transition-all duration-300 ${status === "FAILED" ? "bg-red-500" : status === "COMPLETED" ? "bg-green-500" : "bg-[#c71e22]"}`} 
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               )}
@@ -280,28 +409,40 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
               <div className="text-xs text-gray-500 mt-1">{file ? file.name : "MP4, WebM, MOV"}</div>
             </div>
             
-            {loading && uploadProgress > 0 && (
-              <div className="mt-3 flex items-center justify-between text-xs font-semibold text-gray-600">
-                <span>Uploading to Cloudinary...</span>
-                <span className="text-[#c71e22]">{uploadProgress}%</span>
+            {(status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED" || status === "FAILED") && uploadProgress > 0 && (
+              <div className="mt-3 flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                <div className="flex items-center justify-between">
+                  <span>
+                    {status === "UPLOADING" && "Uploading to Cloudinary..."}
+                    {status === "PROCESSING" && "Saving metadata..."}
+                    {status === "COMPLETED" && "Upload complete!"}
+                    {status === "FAILED" && "Upload failed"}
+                  </span>
+                  <span className={status === "COMPLETED" ? "text-green-600" : status === "FAILED" ? "text-red-600" : "text-[#c71e22]"}>{uploadProgress}%</span>
+                </div>
+                {status === "UPLOADING" && file && (
+                   <div className="flex items-center justify-between text-gray-400">
+                     <span>Uploaded: {formatBytes(uploadedBytes)} / {formatBytes(file.size)}</span>
+                   </div>
+                )}
               </div>
             )}
           </div>
           
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={onClose} disabled={loading} className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-xl transition-colors">
+            <button type="button" onClick={onClose} disabled={status === "UPLOADING" || status === "PROCESSING"} className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50">
               Cancel
             </button>
-            <button type="submit" disabled={loading} className="px-6 py-2.5 bg-[#c71e22] text-white font-semibold rounded-xl hover:bg-[#a5191c] transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2">
-              {loading ? (
+            <button type="submit" disabled={status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED" || !file || !title} className="px-6 py-2.5 bg-[#c71e22] text-white font-semibold rounded-xl hover:bg-[#a5191c] transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2">
+              {(status === "UPLOADING" || status === "PROCESSING") ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Uploading...
+                  {status === "UPLOADING" ? "Uploading..." : "Processing..."}
                 </>
-              ) : "Upload Video"}
+              ) : status === "COMPLETED" ? "Success!" : "Upload Video"}
             </button>
           </div>
         </form>

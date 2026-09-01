@@ -5,14 +5,16 @@ import Student from '../models/Student.js';
 
 const generateTokenAndSetCookie = (res, payload) => {
   const secret = process.env.JWT_SECRET || 'default_jwt_secret';
-  const token = jwt.sign(payload, secret, { expiresIn: '1d' });
+  const token = jwt.sign(payload, secret, { expiresIn: '7d' });
   
-  res.cookie('token', token, {
+  const cookieName = payload.role === 'admin' ? 'admin_token' : 'student_token';
+  
+  res.cookie(cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/',
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
   return token;
 };
@@ -55,6 +57,8 @@ export const studentLogin = async (req, res) => {
 };
 
 export const logout = (req, res) => {
+  res.cookie('admin_token', '', { maxAge: 0, path: '/' });
+  res.cookie('student_token', '', { maxAge: 0, path: '/' });
   res.cookie('token', '', { maxAge: 0, path: '/' });
   res.status(200).json({ success: true });
 };

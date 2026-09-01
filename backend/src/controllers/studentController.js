@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import Student from '../models/Student.js';
+import Counter from '../models/Counter.js';
 
 export const getStudents = async (req, res) => {
   try {
@@ -24,11 +25,23 @@ export const getStudentById = async (req, res) => {
 
 export const createStudent = async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, password } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
 
-    const studentId = `STU-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-    const rawPassword = crypto.randomBytes(4).toString('hex');
+    const letters = name.replace(/[^a-zA-Z]/g, '');
+    const prefixStr = letters.length >= 2 ? letters.slice(-2).toUpperCase() : (letters.length === 1 ? (letters + 'X').toUpperCase() : 'XX');
+    const prefix = `STU-${prefixStr}`;
+
+    const counter = await Counter.findByIdAndUpdate(
+      prefix,
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    
+    const sequenceNumber = String(counter.seq).padStart(3, '0');
+    const studentId = `${prefix}${sequenceNumber}`;
+
+    const rawPassword = password || crypto.randomBytes(4).toString('hex');
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     const student = await Student.create({

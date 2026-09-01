@@ -11,6 +11,7 @@ export default function AdminStudentsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCredsModalOpen, setIsCredsModalOpen] = useState(false);
   
+  const [search, setSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [newCredentials, setNewCredentials] = useState(null);
 
@@ -94,7 +95,13 @@ export default function AdminStudentsPage() {
       <div className="flex items-center justify-between mt-2">
         <div className="relative w-80">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          <input type="text" placeholder="Search students" className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-[14px] focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-300 text-sm font-medium placeholder-gray-400 shadow-sm" />
+          <input 
+            type="text" 
+            placeholder="Search students" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-[14px] focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-300 text-sm font-medium placeholder-gray-400 shadow-sm" 
+          />
         </div>
         <div className="relative">
           <select className="appearance-none bg-white border border-gray-200 rounded-[14px] px-5 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-100 cursor-pointer shadow-sm">
@@ -130,7 +137,9 @@ export default function AdminStudentsPage() {
                 <td colSpan="7" className="py-10 text-center text-gray-500">No students found.</td>
               </tr>
             ) : (
-              students.map((student, index) => (
+              students
+                .filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.studentId.toLowerCase().includes(search.toLowerCase()))
+                .map((student, index) => (
                 <tr key={student._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-5 px-8 text-gray-500">{index + 1}.</td>
                   <td className="py-5 px-6 text-gray-900">{student.name}</td>
@@ -188,6 +197,7 @@ export default function AdminStudentsPage() {
 function AddStudentModal({ onClose, onSuccess }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -196,10 +206,13 @@ function AddStudentModal({ onClose, onSuccess }) {
     setLoading(true);
     setError("");
     try {
+      const payload = { name, phone };
+      if (password) payload.password = password;
+
       const res = await fetchApi("/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok) {
@@ -239,6 +252,15 @@ function AddStudentModal({ onClose, onSuccess }) {
               value={phone} onChange={e => setPhone(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#c71e22] focus:outline-none"
               placeholder="+1 234 567 8900"
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Manual Password (Optional)</label>
+            <input 
+              type="text" 
+              value={password} onChange={e => setPassword(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#c71e22] focus:outline-none"
+              placeholder="Leave blank to auto-generate"
             />
           </div>
           <div className="flex justify-end space-x-3">

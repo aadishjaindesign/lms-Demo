@@ -87,6 +87,20 @@ export default function AdminCoursesPage() {
         </button>
       </div>
 
+      {/* Search & Filter */}
+      <div className="flex items-center justify-between mt-2">
+        <div className="relative w-80">
+          <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input 
+            type="text" 
+            placeholder="Search courses" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-[14px] focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-300 text-sm font-medium placeholder-gray-400 shadow-sm" 
+          />
+        </div>
+      </div>
+
       {/* Grid */}
       {loading ? (
         <div className="py-20 text-center text-gray-500">Loading courses...</div>
@@ -96,7 +110,7 @@ export default function AdminCoursesPage() {
         <div className="py-20 text-center text-gray-500">No courses found.</div>
       ) : (
         <div className="grid grid-cols-2 gap-6 flex-1 min-h-[300px]">
-          {courses.map((course, index) => (
+          {filteredCourses.map((course, index) => (
             <div 
               key={course._id} 
               className={`${cardColors[index % 4]} rounded-[20px] p-12 flex flex-col items-center justify-center shadow-sm relative group`}
@@ -111,11 +125,15 @@ export default function AdminCoursesPage() {
                  </button>
               </div>
 
-              {course.name.toLowerCase().includes('web') && (
+              {course.thumbnail ? (
+                <div className="w-full h-40 mb-4 overflow-hidden rounded-xl border border-gray-100 flex items-center justify-center bg-gray-50">
+                  <img src={course.thumbnail} alt={course.name} className="w-full h-full object-cover" />
+                </div>
+              ) : course.name.toLowerCase().includes('web') && (
                 <div className="text-gray-900 mb-2 font-bold text-3xl">{'</>'}</div>
               )}
               
-              <h2 className="text-[32px] font-medium text-gray-900 mb-3 text-center">{course.name}</h2>
+              <h2 className="text-[28px] font-medium text-gray-900 mb-3 text-center leading-tight">{course.name}</h2>
               
               <Link href={`/admin/courses/${course._id}`} className="flex items-center gap-2 text-gray-700 hover:text-black font-medium transition-colors">
                 Upload Video

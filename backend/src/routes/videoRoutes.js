@@ -1,7 +1,6 @@
 import express from "express";
-import { uploadVideo, getCourseVideos, deleteVideo } from "../controllers/videoController.js";
+import { uploadVideo, getCourseVideos, deleteVideo, generateSignature } from "../controllers/videoController.js";
 import { verifyAdmin } from "../middleware/authMiddleware.js";
-import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -12,22 +11,14 @@ const checkCloudinaryConfig = (req, res, next) => {
   next();
 };
 
-const uploadWrapper = (req, res, next) => {
-  const uploader = upload.single("video");
-  uploader(req, res, function (err) {
-    if (err) {
-      console.error("Cloudinary/Multer Error:", err.message, err.name);
-      return res.status(500).json({ error: "Cloudinary upload failed" });
-    }
-    next();
-  });
-};
+// Get Cloudinary upload signature
+router.get("/courses/:courseId/videos/signature", verifyAdmin, checkCloudinaryConfig, generateSignature);
 
 // Get videos for a course (admin)
 router.get("/courses/:courseId/videos", verifyAdmin, getCourseVideos);
 
-// Upload a video (admin only)
-router.post("/courses/:courseId/videos", verifyAdmin, checkCloudinaryConfig, uploadWrapper, uploadVideo);
+// Upload a video metadata after direct upload (admin only)
+router.post("/courses/:courseId/videos", verifyAdmin, uploadVideo);
 
 // Delete a video (admin only)
 router.delete("/videos/:videoId", verifyAdmin, deleteVideo);

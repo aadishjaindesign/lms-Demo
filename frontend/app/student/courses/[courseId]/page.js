@@ -7,6 +7,15 @@ import { fetchApi } from "@/lib/api";
 export default function StudentCourseDetailsPage() {
   const { courseId } = useParams();
   const [course, setCourse] = useState(null);
+  
+  const getOptimizedVideoUrl = (url) => {
+    if (!url) return '';
+    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+      // Apply automatic format (f_auto) and quality (q_auto) selection to speed up delivery
+      return url.replace('/upload/', '/upload/f_auto,q_auto/');
+    }
+    return url;
+  };
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -146,7 +155,7 @@ export default function StudentCourseDetailsPage() {
               controls 
               autoPlay 
               className="w-full max-h-[80vh] bg-black"
-              src={playingVideo.secureUrl}
+              src={getOptimizedVideoUrl(playingVideo.secureUrl)}
             >
               Your browser does not support the video tag.
             </video>

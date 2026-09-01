@@ -38,7 +38,7 @@ export default function StudentLayout({ children }) {
   const handleLogout = async () => {
     try {
       await fetchApi("/auth/logout", { method: "POST" });
-      router.push("/login");
+      router.push("/student/login");
     } catch (error) {
       console.error("Logout failed", error);
     }

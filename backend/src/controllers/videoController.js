@@ -2,14 +2,45 @@ import Video from "../models/Video.js";
 import Course from "../models/Course.js";
 import { cloudinary } from "../config/cloudinary.js";
 
-// Upload video to a course
+// Generate upload signature for direct Cloudinary chunked upload
+export const generateSignature = async (req, res) => {
+  try {
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const folder = "lms-videos";
+    
+    // Create signature using cloudinary utils
+    const signature = cloudinary.utils.api_sign_request(
+      {
+        timestamp: timestamp,
+        folder: folder,
+      },
+      process.env.CLOUDINARY_API_SECRET
+    );
+
+    res.status(200).json({
+      signature,
+      timestamp,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      folder,
+      chunkSize: parseInt(process.env.CLOUDINARY_UPLOAD_CHUNK_SIZE) || 20971520 // Default 20MB
+    });
+  } catch (error) {
+    console.error("Generate signature error:", error);
+    res.status(500).json({ error: "Failed to generate upload signature" });
+  }
+};
+
+// Create video record after direct Cloudinary upload
 export const uploadVideo = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, description } = req.body;
+    // The video binary is uploaded directly to Cloudinary by the browser.
+    // The frontend sends only the resulting metadata here.
+    const { title, description, publicId, secureUrl, duration } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ error: "File missing" });
+    if (!publicId || !secureUrl) {
+      return res.status(400).json({ error: "Video metadata missing" });
     }
 
     // Check if course exists
@@ -21,8 +52,8 @@ export const uploadVideo = async (req, res) => {
     }
 
     if (!course) {
-      if (req.file && req.file.filename) {
-        await cloudinary.uploader.destroy(req.file.filename, { resource_type: "video" }).catch(() => {});
+      if (publicId) {
+        await cloudinary.uploader.destroy(publicId, { resource_type: "video" }).catch(() => {});
       }
       return res.status(404).json({ error: "Course not found" });
     }
@@ -35,8 +66,9 @@ export const uploadVideo = async (req, res) => {
       courseId,
       title: title || "Untitled Video",
       description: description || "",
-      publicId: req.file.filename,
-      secureUrl: req.file.path,
+      publicId: publicId,
+      secureUrl: secureUrl,
+      duration: duration || 0,
       order,
     });
 
@@ -44,11 +76,11 @@ export const uploadVideo = async (req, res) => {
 
     res.status(201).json(video);
   } catch (error) {
-    console.error("Upload video error:", error.message || error);
+    console.error("Upload video DB save error:", error.message || error);
     
-    // Clean up partial Cloudinary upload if DB save failed
-    if (req.file && req.file.filename) {
-      await cloudinary.uploader.destroy(req.file.filename, { resource_type: "video" }).catch(() => {});
+    // Clean up Cloudinary upload if MongoDB DB save failed
+    if (req.body && req.body.publicId) {
+      await cloudinary.uploader.destroy(req.body.publicId, { resource_type: "video" }).catch(() => {});
     }
     
     res.status(500).json({ error: "Database save failed" });
