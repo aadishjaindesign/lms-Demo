@@ -28,9 +28,11 @@ export const createStudent = async (req, res) => {
     const { name, phone, password } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
 
-    const letters = name.replace(/[^a-zA-Z]/g, '');
-    const prefixStr = letters.length >= 2 ? letters.slice(-2).toUpperCase() : (letters.length === 1 ? (letters + 'X').toUpperCase() : 'XX');
-    const prefix = `STU-${prefixStr}`;
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
+    }
+
+    const prefix = 'STU-JC';
 
     const counter = await Counter.findByIdAndUpdate(
       prefix,
@@ -58,6 +60,11 @@ export const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
     let updateData = { ...req.body };
+    
+    if (updateData.phone && !/^\d{10}$/.test(updateData.phone)) {
+      return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
+    }
+
     if (updateData.password) updateData.password = await bcrypt.hash(updateData.password, 10);
 
     const student = await Student.findByIdAndUpdate(id, updateData, { new: true }).select('-password');

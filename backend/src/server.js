@@ -9,6 +9,8 @@ import studentRoutes from './routes/studentRoutes.js';
 import studentPortalRoutes from './routes/studentPortalRoutes.js';
 import courseRoutes from './routes/courseRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import { startVideoCleanupScheduler } from './services/videoCleanupService.js';
 
 dotenv.config();
 
@@ -28,17 +30,26 @@ app.use('/api/students', studentRoutes);
 app.use('/api/student', studentPortalRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api', videoRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
   res.send('LMS Backend API is running');
 });
 
+export { app };
+
 const startServer = async () => {
   await connectToDatabase();
+  
+  // Start the video cleanup scheduler
+  startVideoCleanupScheduler();
+  
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Allowing CORS for frontend: ${FRONTEND_URL}`);
   });
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}

@@ -20,6 +20,26 @@ export default function StudentCourseDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [playingVideo, setPlayingVideo] = useState(null);
+  const [playbackUrl, setPlaybackUrl] = useState("");
+
+  const handlePlayVideo = async (video) => {
+    setPlayingVideo(video);
+    if (video.storageProvider === 'r2') {
+      try {
+        const res = await fetchApi(`/courses/${courseId}/videos/${video._id}/playback-url`);
+        if (res.ok) {
+          const data = await res.json();
+          setPlaybackUrl(data.url);
+        } else {
+          setError("Failed to get playback URL");
+        }
+      } catch (err) {
+        setError(err.message);
+      }
+    } else {
+      setPlaybackUrl(getOptimizedVideoUrl(video.secureUrl));
+    }
+  };
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -58,7 +78,7 @@ export default function StudentCourseDetailsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-7xl mx-auto h-full flex flex-col items-center justify-center">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto h-full flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#c71e22] mb-4"></div>
         <div className="text-gray-500 font-medium">Loading course material...</div>
       </div>
@@ -67,7 +87,7 @@ export default function StudentCourseDetailsPage() {
 
   if (error || !course) {
     return (
-      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center h-full py-20">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center h-full py-10 md:py-20">
         <div className="bg-red-50 text-red-600 p-6 rounded-2xl max-w-md w-full text-center border border-red-100 shadow-sm">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -83,20 +103,20 @@ export default function StudentCourseDetailsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-8 py-8">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-4 md:px-8 py-6 md:py-8">
       {/* Header */}
       <div className="mb-2">
         <Link href="/student/courses" className="text-sm font-medium text-gray-500 hover:text-gray-900 mb-4 inline-flex items-center gap-1 transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           Back to Courses
         </Link>
-        <h1 className="text-[32px] font-bold text-gray-900 leading-tight mb-2">{course.name}</h1>
-        <p className="text-gray-600 text-base max-w-3xl leading-relaxed">{course.description || "No description available for this course."}</p>
+        <h1 className="text-2xl md:text-[32px] font-bold text-gray-900 leading-tight mb-2 break-words hyphens-auto">{course.name}</h1>
+        <p className="text-gray-600 text-sm md:text-base max-w-3xl leading-relaxed break-words hyphens-auto">{course.description || "No description available for this course."}</p>
       </div>
 
       {/* Videos List */}
-      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-8 flex-1">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-4 md:p-8 flex-1">
+        <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
           <svg className="w-6 h-6 text-[#c71e22]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
           Course Videos ({videos.length})
         </h2>
@@ -112,13 +132,21 @@ export default function StudentCourseDetailsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((video, index) => {
-              // Convert .mp4 to .jpg for Cloudinary thumbnail
-              const thumbnailUrl = video.secureUrl.replace(/\.[^/.]+$/, ".jpg");
+              // Use dummy thumbnail for R2 or Cloudinary thumbnail
+              const thumbnailUrl = video.storageProvider === 'r2' 
+                ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23ccc' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='5 3 19 12 5 21 5 3'%3E%3C/polygon%3E%3C/svg%3E" 
+                : (video.secureUrl ? video.secureUrl.replace(/\.[^/.]+$/, ".jpg") : "");
               
               return (
-                <div key={video._id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group cursor-pointer" onClick={() => setPlayingVideo(video)}>
+                <div key={video._id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group cursor-pointer" onClick={() => handlePlayVideo(video)}>
                   <div className="relative aspect-video bg-gray-900 flex items-center justify-center overflow-hidden">
-                    <img src={thumbnailUrl} alt={video.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300 group-hover:scale-105" />
+                    {video.storageProvider === 'r2' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                        <svg className="w-16 h-16 text-gray-700" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
+                      </div>
+                    ) : (
+                      <img src={thumbnailUrl} alt={video.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300 group-hover:scale-105" />
+                    )}
                     
                     {/* Play Button Overlay */}
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center">
@@ -132,7 +160,7 @@ export default function StudentCourseDetailsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <span className="text-xs font-bold text-[#c71e22] tracking-wider uppercase mb-1.5 block">Lesson {String(index + 1).padStart(2, '0')}</span>
-                        <h3 className="font-bold text-gray-900 line-clamp-2 text-lg leading-snug group-hover:text-[#c71e22] transition-colors">{video.title}</h3>
+                        <h3 className="font-bold text-gray-900 line-clamp-2 text-lg leading-snug group-hover:text-[#c71e22] transition-colors break-words">{video.title}</h3>
                       </div>
                     </div>
                   </div>
@@ -144,23 +172,26 @@ export default function StudentCourseDetailsPage() {
       </div>
 
       {playingVideo && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
           <div className="bg-black rounded-xl overflow-hidden w-full max-w-4xl shadow-2xl relative flex flex-col">
-            <div className="absolute top-4 right-4 z-10">
+            <div className="absolute top-2 right-2 md:top-4 md:right-4 z-10">
               <button onClick={() => setPlayingVideo(null)} className="bg-black/50 hover:bg-black/80 text-white rounded-full p-2 transition-colors">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
             <video 
               controls 
               autoPlay 
               className="w-full max-h-[80vh] bg-black"
-              src={getOptimizedVideoUrl(playingVideo.secureUrl)}
+              src={playbackUrl}
             >
               Your browser does not support the video tag.
             </video>
-            <div className="p-4 bg-gray-900 text-white">
-              <h3 className="font-bold text-lg">{playingVideo.title}</h3>
+            <div className="p-4 bg-gray-900 text-white flex flex-col sm:flex-row sm:justify-between gap-2">
+              <h3 className="font-bold text-lg break-words">{playingVideo.title}</h3>
+              {playingVideo.expiresAt && (
+                <span className="text-sm text-gray-400">Expires: {new Date(playingVideo.expiresAt).toLocaleString()}</span>
+              )}
             </div>
           </div>
         </div>

@@ -70,9 +70,9 @@ export default function AdminStudentsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-8 py-8">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-4 md:px-8 py-6 md:py-8">
       {/* Top Banner Card */}
-      <div className="bg-[#fceeed] rounded-[20px] p-8 flex items-center justify-between shadow-sm">
+      <div className="bg-[#fceeed] rounded-[20px] p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-4">
         <div className="flex items-center gap-5">
           <div className="text-[#C62026]">
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -92,8 +92,8 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* Search & Filter */}
-      <div className="flex items-center justify-between mt-2">
-        <div className="relative w-80">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between mt-2 gap-4">
+        <div className="relative w-full md:w-80">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           <input 
             type="text" 
@@ -114,8 +114,8 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-[20px] shadow-sm overflow-hidden border border-gray-100 flex-1">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white rounded-[20px] shadow-sm overflow-x-auto border border-gray-100 flex-1">
+        <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
             <tr className="bg-[#fceeed] text-gray-800 text-sm font-semibold border-b border-gray-100">
               <th className="py-4 px-8 w-16">#</th>
@@ -251,7 +251,11 @@ function AddStudentModal({ onClose, onSuccess }) {
               type="text" required
               value={phone} onChange={e => setPhone(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#c71e22] focus:outline-none"
-              placeholder="+1 234 567 8900"
+              placeholder="Enter 10-digit phone number"
+              pattern="[0-9]{10}"
+              maxLength={10}
+              minLength={10}
+              title="Phone number must be exactly 10 digits"
             />
           </div>
           <div className="mb-6">
@@ -331,6 +335,11 @@ function EditStudentModal({ student, onClose, onSuccess }) {
               type="text" required
               value={phone} onChange={e => setPhone(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#c71e22] focus:outline-none"
+              placeholder="Enter 10-digit phone number"
+              pattern="[0-9]{10}"
+              maxLength={10}
+              minLength={10}
+              title="Phone number must be exactly 10 digits"
             />
           </div>
           <div className="mb-6">

@@ -99,8 +99,8 @@ export default function StudentDetailsPage() {
       
       <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
         <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-1">{student.name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 break-words">{student.name}</h1>
             <p className="text-gray-500 mb-3">{student.phone}</p>
             <div className="flex items-center gap-3">
               <span className="font-mono bg-gray-100 border border-gray-200 rounded text-sm px-3 py-1 font-semibold text-gray-700">
@@ -322,9 +322,9 @@ function AssignCourseModal({ studentId, courses, access, onClose, onSuccess }) {
             />
           </div>
 
-          <div className="flex justify-end space-x-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 bg-[#c71e22] text-white rounded-lg hover:bg-[#a5191c] transition-colors disabled:opacity-50">
+          <div className="flex flex-wrap justify-end gap-2 mt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-1 text-center min-w-[100px]">Cancel</button>
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-[#c71e22] text-white rounded-lg hover:bg-[#a5191c] transition-colors disabled:opacity-50 flex-1 text-center min-w-[100px]">
               {loading ? "Saving..." : "Save Access"}
             </button>
           </div>

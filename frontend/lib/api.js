@@ -10,16 +10,22 @@ export const fetchApi = async (endpoint, options = {}) => {
 
   const response = await fetch(url, finalOptions);
 
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     if (typeof window !== 'undefined') {
-      if (window.location.pathname.startsWith('/student')) {
-        if (window.location.pathname !== '/student/login') {
-          window.location.href = '/student/login';
-        }
-      } else {
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
-        }
+      const isStudent = window.location.pathname.startsWith('/student');
+      const targetLogin = isStudent ? '/student/login' : '/';
+      
+      if (window.location.pathname !== targetLogin) {
+        console.error(`
+[AUTO LOGOUT DEBUG]
+Reason: 401 Unauthorized from API interceptor
+HTTP status: 401
+Request URL: ${url}
+Role: ${isStudent ? 'student' : 'admin'}
+Timestamp: ${new Date().toISOString()}
+Stack trace: ${new Error().stack}
+        `);
+        window.location.href = targetLogin;
       }
     }
   }

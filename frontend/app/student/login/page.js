@@ -60,7 +60,7 @@ export default function StudentLoginPage() {
           <p className="text-red-700/80 text-sm mt-2">Sign in to access your courses</p>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-6">
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium text-center">
               {error}
@@ -72,7 +72,7 @@ export default function StudentLoginPage() {
             <input
               type="text"
               required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all min-w-0"
               placeholder="Enter your student ID"
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
@@ -84,7 +84,7 @@ export default function StudentLoginPage() {
             <input
               type="password"
               required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all min-w-0"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

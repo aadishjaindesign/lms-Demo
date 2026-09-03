@@ -1,8 +1,10 @@
 {
-  "/student/courses/[courseId]/page": "app/student/courses/[courseId]/page.js",
+  "/page": "app/page.js",
   "/student/courses/page": "app/student/courses/page.js",
-  "/admin/students/[id]/page": "app/admin/students/[id]/page.js",
+  "/admin/page": "app/admin/page.js",
   "/admin/courses/page": "app/admin/courses/page.js",
   "/admin/students/page": "app/admin/students/page.js",
-  "/admin/courses/[id]/page": "app/admin/courses/[id]/page.js"
+  "/admin/profile/page": "app/admin/profile/page.js",
+  "/student/page": "app/student/page.js",
+  "/student/profile/page": "app/student/profile/page.js"
 }

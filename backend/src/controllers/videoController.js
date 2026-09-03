@@ -1,6 +1,11 @@
 import Video from "../models/Video.js";
 import Course from "../models/Course.js";
 import { cloudinary } from "../config/cloudinary.js";
+import { r2Client } from "../config/r2.js";
+import { CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand, AbortMultipartUploadCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import crypto from "crypto";
+import { hasCourseAccess } from "../services/courseAccessService.js";
 
 // Generate upload signature for direct Cloudinary chunked upload
 export const generateSignature = async (req, res) => {
@@ -109,8 +114,19 @@ export const deleteVideo = async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    // Delete from Cloudinary
-    if (video.publicId) {
+    // Delete from storage
+    if (video.storageProvider === "r2" && video.objectKey) {
+      try {
+        const command = new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: video.objectKey,
+        });
+        await r2Client.send(command);
+      } catch (r2Err) {
+        console.error("Failed to delete R2 object:", r2Err);
+        return res.status(500).json({ error: "Failed to delete from storage" });
+      }
+    } else if (video.publicId) {
       await cloudinary.uploader.destroy(video.publicId, { resource_type: "video" });
     }
 
@@ -128,5 +144,149 @@ export const deleteVideo = async (req, res) => {
   } catch (error) {
     console.error("Delete video error:", error);
     res.status(500).json({ error: "Failed to delete video" });
+  }
+};
+
+// Initiate R2 Multipart Upload
+export const initiateMultipartUpload = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { filename, parts } = req.body;
+    
+    if (!parts || parts <= 0 || parts > 10000) {
+      return res.status(400).json({ error: "Invalid parts count" });
+    }
+
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const uuid = crypto.randomUUID();
+    const objectKey = `videos/${courseId}/${uuid}-${sanitizedFilename}`;
+
+    const command = new CreateMultipartUploadCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: objectKey,
+    });
+
+    const multipartUpload = await r2Client.send(command);
+    const uploadId = multipartUpload.UploadId;
+
+    const presignedUrls = await Promise.all(
+      Array.from({ length: parts }).map(async (_, index) => {
+        const i = index + 1;
+        const partCommand = new UploadPartCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: objectKey,
+          UploadId: uploadId,
+          PartNumber: i,
+        });
+        const url = await getSignedUrl(r2Client, partCommand, { expiresIn: 3600 });
+        return { partNumber: i, url };
+      })
+    );
+
+    res.status(200).json({ uploadId, objectKey, presignedUrls });
+  } catch (error) {
+    console.error("Initiate multipart error:", error);
+    res.status(500).json({ error: "Failed to initiate multipart upload" });
+  }
+};
+
+// Complete R2 Multipart Upload
+export const completeMultipartUpload = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { uploadId, objectKey, parts, title, description, size, mimeType, originalName } = req.body;
+
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: objectKey,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts }, // array of { ETag, PartNumber }
+    });
+
+    await r2Client.send(command);
+
+    const videoCount = await Video.countDocuments({ courseId });
+    const order = videoCount + 1;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days exact
+
+    const video = new Video({
+      courseId,
+      title: title || "Untitled Video",
+      description: description || "",
+      storageProvider: "r2",
+      objectKey,
+      originalName,
+      mimeType,
+      size,
+      expiresAt,
+      uploadedAt: now,
+      order,
+    });
+
+    await video.save();
+    res.status(201).json(video);
+  } catch (error) {
+    console.error("Complete multipart error:", error);
+    res.status(500).json({ error: "Failed to complete multipart upload" });
+  }
+};
+
+// Abort R2 Multipart Upload
+export const abortMultipartUpload = async (req, res) => {
+  try {
+    const { uploadId, objectKey } = req.body;
+    if (!uploadId || !objectKey) {
+      return res.status(400).json({ error: "Missing uploadId or objectKey" });
+    }
+
+    const command = new AbortMultipartUploadCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: objectKey,
+      UploadId: uploadId,
+    });
+
+    await r2Client.send(command);
+    res.status(200).json({ message: "Multipart upload aborted successfully" });
+  } catch (error) {
+    console.error("Abort multipart error:", error);
+    res.status(500).json({ error: "Failed to abort multipart upload" });
+  }
+};
+
+// Get secure playback URL
+export const getPlaybackUrl = async (req, res) => {
+  try {
+    const { courseId, videoId } = req.params;
+    const user = req.user;
+
+    if (user.role === "student") {
+      const accessCheck = await hasCourseAccess(user.userId, courseId);
+      if (!accessCheck.hasAccess) {
+        return res.status(403).json({ error: "Access denied to this course" });
+      }
+    } else if (user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized role" });
+    }
+
+    const video = await Video.findOne({ _id: videoId, courseId });
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    if (video.storageProvider !== "r2") {
+      return res.status(400).json({ error: "Video is not stored in R2" });
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: video.objectKey,
+    });
+
+    const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    res.status(200).json({ url });
+  } catch (error) {
+    console.error("Get playback URL error:", error);
+    res.status(500).json({ error: "Failed to generate playback URL" });
   }
 };

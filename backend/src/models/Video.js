@@ -17,11 +17,31 @@ const VideoSchema = new mongoose.Schema(
     },
     publicId: {
       type: String,
-      required: true,
+      required: false, // Changed for R2 support
     },
     secureUrl: {
       type: String,
-      required: true,
+      required: false, // Changed for R2 support
+    },
+    storageProvider: {
+      type: String,
+      enum: ["cloudinary", "r2"],
+      default: "cloudinary",
+    },
+    objectKey: {
+      type: String,
+    },
+    originalName: {
+      type: String,
+    },
+    mimeType: {
+      type: String,
+    },
+    size: {
+      type: Number,
+    },
+    expiresAt: {
+      type: Date,
     },
     duration: {
       type: Number,
@@ -36,10 +56,16 @@ const VideoSchema = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+VideoSchema.index({ expiresAt: 1 });
 
 export default mongoose.models.Video || mongoose.model("Video", VideoSchema);

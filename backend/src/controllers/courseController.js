@@ -1,4 +1,9 @@
 import Course from '../models/Course.js';
+import Video from '../models/Video.js';
+import CourseAccess from '../models/CourseAccess.js';
+import { r2Client } from '../config/r2.js';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { cloudinary } from '../config/cloudinary.js';
 
 export const getCourses = async (req, res) => {
   try {
@@ -88,11 +93,60 @@ export const updateCourseStatus = async (req, res) => {
 export const deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const course = await Course.findByIdAndDelete(id);
+    
+    // 1. Verify Course exists
+    const course = await Course.findById(id);
     if (!course) return res.status(404).json({ error: 'Course not found' });
 
-    res.status(200).json({ success: true });
+    // 2. Fetch all Videos
+    const videos = await Video.find({ courseId: id });
+    
+    const errors = [];
+    const deletedVideoIds = [];
+    
+    // 3. Delete Physical Files
+    for (const video of videos) {
+      try {
+        if (video.storageProvider === 'r2' && video.objectKey) {
+          const command = new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: video.objectKey,
+          });
+          await r2Client.send(command);
+        } else if (video.storageProvider === 'cloudinary' && video.publicId) {
+          await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+        }
+        deletedVideoIds.push(video._id);
+      } catch (err) {
+        console.error(`Failed to delete physical video ${video._id}:`, err);
+        errors.push(`Failed to delete video: ${video.title || video._id}`);
+      }
+    }
+    
+    if (errors.length > 0) {
+      // Partial failure. Do not delete course.
+      // But we can clean up the DB records for videos that did succeed.
+      if (deletedVideoIds.length > 0) {
+         await Video.deleteMany({ _id: { $in: deletedVideoIds } });
+      }
+      return res.status(500).json({ 
+        error: 'Failed to completely delete course due to storage errors.', 
+        details: errors 
+      });
+    }
+
+    // 4. Delete Video DB records (all succeeded)
+    await Video.deleteMany({ courseId: id });
+
+    // 5. Delete CourseAccess records
+    await CourseAccess.deleteMany({ courseId: id });
+
+    // 6. Delete Course
+    await Course.findByIdAndDelete(id);
+
+    res.status(200).json({ success: true, message: 'Course cascade deleted successfully' });
   } catch (error) {
+    console.error('Course cascade delete error:', error);
     res.status(500).json({ error: 'Failed to delete course' });
   }
 };
