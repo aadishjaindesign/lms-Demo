@@ -66,7 +66,7 @@ export default function AdminCoursesPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-4 md:px-8 py-8">
+    <div className="flex flex-col gap-4 sm:gap-6 max-w-7xl mx-auto h-full px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8">
       {/* Top Banner Card */}
       <div className="bg-[#fceeed] rounded-[20px] p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-4">
         <div className="flex items-center gap-5">
@@ -74,7 +74,7 @@ export default function AdminCoursesPage() {
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
           </div>
           <div>
-            <h2 className="text-[28px] font-semibold text-gray-900 leading-tight mb-1">Courses</h2>
+            <h2 className="text-xl sm:text-2xl md:text-[28px] font-semibold text-gray-900 leading-tight mb-1">Courses</h2>
             <p className="text-gray-500 text-sm font-medium">Manage and control courses</p>
           </div>
         </div>
@@ -88,7 +88,7 @@ export default function AdminCoursesPage() {
       </div>
 
       {/* Search & Filter */}
-      <div className="flex items-center justify-between mt-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mt-2 gap-3">
         <div className="relative w-full md:w-80">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           <input 
@@ -113,7 +113,7 @@ export default function AdminCoursesPage() {
           {filteredCourses.map((course, index) => (
             <div 
               key={course._id} 
-              className={`${cardColors[index % 4]} rounded-[20px] p-6 md:p-12 flex flex-col items-center justify-center shadow-sm relative group`}
+              className={`${cardColors[index % 4]} rounded-[20px] p-5 sm:p-6 md:p-12 flex flex-col items-center justify-center shadow-sm relative group`}
             >
               {/* Subtle Edit/Delete icons on hover */}
               <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
@@ -133,7 +133,7 @@ export default function AdminCoursesPage() {
                 <div className="text-gray-900 mb-2 font-bold text-3xl">{'</>'}</div>
               )}
               
-              <h2 className="text-2xl md:text-[28px] font-medium text-gray-900 mb-3 text-center leading-tight break-words">{course.name}</h2>
+              <h2 className="text-lg sm:text-2xl md:text-[28px] font-medium text-gray-900 mb-3 text-center leading-tight break-words">{course.name}</h2>
               
               <Link href={`/admin/courses/${course._id}`} className="flex items-center gap-2 text-gray-700 hover:text-black font-medium transition-colors">
                 Upload Video

@@ -70,21 +70,21 @@ export default function AdminStudentsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-4 md:px-8 py-6 md:py-8">
+    <div className="flex flex-col gap-4 sm:gap-6 mx-auto h-full px-1 sm:px-2 md:px-4 py-3 sm:py-4 md:py-6">
       {/* Top Banner Card */}
-      <div className="bg-[#fceeed] rounded-[20px] p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-4">
-        <div className="flex items-center gap-5">
-          <div className="text-[#C62026]">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+      <div className="bg-[#fceeed] rounded-2xl sm:rounded-[20px] p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between shadow-sm gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-5">
+          <div className="text-[#C62026] flex-shrink-0">
+            <svg className="w-8 h-8 sm:w-12 sm:h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
           </div>
           <div>
-            <h2 className="text-[28px] font-semibold text-gray-900 leading-tight mb-1">Students</h2>
-            <p className="text-gray-500 text-sm font-medium">Manage and control student accounts</p>
+            <h2 className="text-lg sm:text-xl md:text-[28px] font-semibold text-gray-900 leading-tight mb-0.5 sm:mb-1">Students</h2>
+            <p className="text-gray-500 text-xs sm:text-sm font-medium">Manage and control student accounts</p>
           </div>
         </div>
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-[#c71e22] hover:bg-[#a5191c] text-white px-6 py-2.5 rounded-full shadow-sm transition-colors font-semibold flex items-center gap-2 text-sm"
+          className="bg-[#c71e22] hover:bg-[#a5191c] text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-sm transition-colors font-semibold flex items-center justify-center gap-2 text-sm w-full sm:w-auto flex-shrink-0"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
           Add students
@@ -92,8 +92,8 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* Search & Filter */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between mt-2 gap-4">
-        <div className="relative w-full md:w-80">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mt-1 sm:mt-2 gap-3">
+        <div className="relative w-full sm:w-80">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           <input 
             type="text" 
@@ -104,7 +104,7 @@ export default function AdminStudentsPage() {
           />
         </div>
         <div className="relative">
-          <select className="appearance-none bg-white border border-gray-200 rounded-[14px] px-5 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-100 cursor-pointer shadow-sm">
+          <select className="appearance-none w-full sm:w-auto bg-white border border-gray-200 rounded-[14px] px-5 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-100 cursor-pointer shadow-sm">
             <option>All status</option>
             <option>Active</option>
             <option>Blocked</option>
@@ -114,17 +114,17 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-[20px] shadow-sm overflow-x-auto border border-gray-100 flex-1">
-        <table className="w-full text-left border-collapse min-w-[800px]">
+      <div className="bg-white rounded-2xl sm:rounded-[20px] shadow-sm overflow-auto border border-gray-100 flex-1 -mx-1 sm:mx-0">
+        <table className="w-full text-left border-collapse min-w-[650px]">
           <thead>
             <tr className="bg-[#fceeed] text-gray-800 text-sm font-semibold border-b border-gray-100">
-              <th className="py-4 px-8 w-16">#</th>
-              <th className="py-4 px-6">Students name</th>
-              <th className="py-4 px-6">Students ID</th>
-              <th className="py-4 px-6">Phone / E-Mail</th>
-              <th className="py-4 px-6">Joined on</th>
-              <th className="py-4 px-6">Status</th>
-              <th className="py-4 px-8 text-center">Actions</th>
+              <th className="py-3 px-4 sm:px-8 w-12 sm:w-16">#</th>
+              <th className="py-3 px-3 sm:px-6">Students name</th>
+              <th className="py-3 px-3 sm:px-6">Students ID</th>
+              <th className="py-3 px-3 sm:px-6">Phone / E-Mail</th>
+              <th className="py-3 px-3 sm:px-6">Joined on</th>
+              <th className="py-3 px-3 sm:px-6">Status</th>
+              <th className="py-3 px-4 sm:px-8 text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="text-gray-700 text-sm font-medium">
@@ -141,17 +141,18 @@ export default function AdminStudentsPage() {
                 .filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.studentId.toLowerCase().includes(search.toLowerCase()))
                 .map((student, index) => (
                 <tr key={student._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <td className="py-5 px-8 text-gray-500">{index + 1}.</td>
-                  <td className="py-5 px-6 text-gray-900">{student.name}</td>
-                  <td className="py-5 px-6 text-gray-600">{student.studentId}</td>
-                  <td className="py-5 px-6 text-gray-600">{student.phone}</td>
-                  <td className="py-5 px-6 text-gray-600">{new Date(student.createdAt).toLocaleDateString('en-GB')}</td>
-                  <td className="py-5 px-6">
-                    <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${student.status === 'active' ? 'bg-[#e2f5ea] text-[#22c55e]' : 'bg-red-100 text-red-600'}`}>
+                  <td className="py-3 sm:py-5 px-4 sm:px-8 text-gray-500">{index + 1}.</td>
+                  <td className="py-3 sm:py-5 px-3 sm:px-6 text-gray-900 whitespace-nowrap">{student.name}</td>
+                  <td className="py-3 sm:py-5 px-3 sm:px-6 text-gray-600 whitespace-nowrap">{student.studentId}</td>
+                  <td className="py-3 sm:py-5 px-3 sm:px-6 text-gray-600 whitespace-nowrap">{student.phone}</td>
+                  <td className="py-3 sm:py-5 px-3 sm:px-6 text-gray-600 whitespace-nowrap">{new Date(student.createdAt).toLocaleDateString('en-GB')}</td>
+                  <td className="py-3 sm:py-5 px-3 sm:px-6">
+                    <span className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs font-bold ${student.status === 'active' ? 'bg-[#e2f5ea] text-[#22c55e]' : 'bg-red-100 text-red-600'}`}>
                       {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
                     </span>
                   </td>
-                  <td className="py-5 px-8 flex items-center justify-center space-x-4">
+                  <td className="py-3 sm:py-5 px-4 sm:px-8">
+                    <div className="flex items-center justify-center space-x-3 sm:space-x-4">
                     <Link href={`/admin/students/${student._id}`} title="View Details" className="text-gray-400 hover:text-[#c71e22] transition-colors">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                     </Link>
@@ -161,6 +162,7 @@ export default function AdminStudentsPage() {
                     <button onClick={() => handleDelete(student._id)} className="text-gray-400 hover:text-red-600 transition-colors">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
+                    </div>
                   </td>
                 </tr>
               ))
