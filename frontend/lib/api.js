@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lms-backend-9y8d.onrender.com/api';
 
 export const fetchApi = async (endpoint, options = {}) => {
   const url = `${API_URL}${endpoint}`;

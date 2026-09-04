@@ -54,7 +54,7 @@ export default function MyCoursesPage() {
           </div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">No Active Courses</h3>
           <p className="text-gray-500 max-w-md">
-            You don't have any active courses yet. If you believe this is an error, please contact your administrator.
+            You don&apos;t have any active courses yet. If you believe this is an error, please contact your administrator.
           </p>
         </div>
       ) : (

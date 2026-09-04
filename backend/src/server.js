@@ -11,6 +11,7 @@ import courseRoutes from './routes/courseRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { startVideoCleanupScheduler } from './services/videoCleanupService.js';
+import { startKeepAlive } from './services/keepAliveService.js';
 
 dotenv.config();
 
@@ -43,6 +44,9 @@ const startServer = async () => {
   
   // Start the video cleanup scheduler
   startVideoCleanupScheduler();
+  
+  // Start keep-alive service to prevent Render from sleeping
+  startKeepAlive();
   
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

@@ -38,3 +38,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 backend/.env
+
+# Local Database Storage
+data/
+backend/data/
