@@ -16,7 +16,7 @@ export default function StudentLoginPage() {
       try {
         const res = await fetchApi("/student/dashboard");
         if (res.ok) {
-          router.push("/student");
+          router.push("/student/courses");
         }
       } catch (e) {
         // Ignored
@@ -40,7 +40,7 @@ export default function StudentLoginPage() {
       const data = await res.json();
       
       if (res.ok) {
-        router.push("/student");
+        router.push("/student/courses");
       } else {
         setError(data.error || "Login failed");
       }
@@ -72,7 +72,7 @@ export default function StudentLoginPage() {
             <input
               type="text"
               required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all min-w-0"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all min-w-0 text-gray-900"
               placeholder="Enter your student ID"
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
@@ -84,7 +84,7 @@ export default function StudentLoginPage() {
             <input
               type="password"
               required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all min-w-0"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#c71e22] focus:border-transparent outline-none transition-all min-w-0 text-gray-900"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -10,7 +10,6 @@ export const hasCourseAccess = async (studentId, courseId) => {
 
     const course = await Course.findById(courseId);
     if (!course) return { hasAccess: false, reason: 'COURSE_NOT_FOUND' };
-    if (course.status !== 'active') return { hasAccess: false, reason: 'COURSE_INACTIVE' };
 
     const access = await CourseAccess.findOne({ studentId, courseId });
     if (!access) return { hasAccess: false, reason: 'ACCESS_NOT_FOUND' };

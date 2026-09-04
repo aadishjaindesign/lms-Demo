@@ -1,19 +1,49 @@
+"use client";
+import { useEffect, useState } from "react";
+
 export default function ProfilePage() {
+  const [email, setEmail] = useState("Loading...");
+
+  useEffect(() => {
+    // Access the email saved during login
+    const savedEmail = localStorage.getItem("admin_email");
+    if (savedEmail) {
+      setEmail(savedEmail);
+    } else {
+      setEmail("admin@jainscomputer.com"); // Fallback
+    }
+  }, []);
+
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto h-full px-4 md:px-8 py-6 md:py-8">
-      <div className="bg-white rounded-xl shadow-sm p-6 md:p-8 flex flex-col items-center justify-center min-h-[400px] border border-gray-100">
-        <div className="w-24 h-24 rounded-full bg-red-100 text-[#c71e22] font-bold flex items-center justify-center text-4xl mb-6">A</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Admin User</h2>
-        <p className="text-gray-500 mb-8">Administrator</p>
+    <div className="flex flex-col gap-5 max-w-4xl mx-auto h-full">
+      {/* Top Banner */}
+      <div className="bg-[#fceeed] rounded-2xl p-5 sm:p-6 flex items-center gap-4">
+        <div className="w-12 h-12 bg-white/60 rounded-xl flex items-center justify-center flex-shrink-0">
+          <svg className="w-6 h-6 text-[#c71e22]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+        </div>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Profile</h2>
+          <p className="text-gray-500 text-sm">View your account details</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 flex flex-col items-center justify-center min-h-[400px] border border-gray-100 flex-1">
+        <div className="w-28 h-28 rounded-3xl bg-red-50 text-[#c71e22] font-bold flex items-center justify-center text-5xl mb-6 shadow-sm border border-red-100">A</div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">Admin User</h2>
+        <p className="text-[#c71e22] font-medium text-sm mb-10 px-3 py-1 bg-red-50 rounded-full">Administrator</p>
         
-        <div className="w-full max-w-md space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-lg gap-1">
-            <span className="font-medium text-gray-600">Email</span>
-            <span className="text-gray-900 break-all sm:break-normal">admin@jainscomputer.com</span>
+        <div className="w-full max-w-md space-y-3">
+          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-xl gap-2 border border-gray-100">
+            <span className="font-bold text-xs text-gray-500 uppercase tracking-wider">Email Address</span>
+            <span className="text-gray-900 font-medium break-all sm:break-normal">{email}</span>
           </div>
-          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-lg gap-1">
-            <span className="font-medium text-gray-600">Role</span>
-            <span className="text-gray-900">Super Admin</span>
+          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-xl gap-2 border border-gray-100">
+            <span className="font-bold text-xs text-gray-500 uppercase tracking-wider">Access Role</span>
+            <span className="text-gray-900 font-medium">Super Admin</span>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-xl gap-2 border border-gray-100">
+            <span className="font-bold text-xs text-gray-500 uppercase tracking-wider">Account Status</span>
+            <span className="text-green-600 font-bold text-sm bg-green-100 px-2 py-0.5 rounded-full inline-flex items-center w-max">Active</span>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import express from "express";
-import { uploadVideo, getCourseVideos, deleteVideo, generateSignature, initiateMultipartUpload, completeMultipartUpload, abortMultipartUpload, getPlaybackUrl } from "../controllers/videoController.js";
+import { uploadVideo, getCourseVideos, deleteVideo, updateVideo, generateSignature, initiateMultipartUpload, completeMultipartUpload, abortMultipartUpload, getPlaybackUrl } from "../controllers/videoController.js";
 import { verifyAdmin, verifyAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -27,6 +27,9 @@ router.get("/courses/:courseId/videos", verifyAdmin, getCourseVideos);
 
 // Upload a video metadata after direct upload (admin only)
 router.post("/courses/:courseId/videos", verifyAdmin, uploadVideo);
+
+// Update a video (admin only)
+router.patch("/videos/:videoId", verifyAdmin, updateVideo);
 
 // Delete a video (admin only)
 router.delete("/videos/:videoId", verifyAdmin, deleteVideo);
