@@ -7,14 +7,40 @@ import { cloudinary } from '../config/cloudinary.js';
 
 export const getCourses = async (req, res) => {
   try {
-    let query = {};
+    let matchQuery = {};
     if (req.user?.role !== 'admin') {
-      query.status = 'active';
+      matchQuery.status = 'active';
     }
 
-    const courses = await Course.find(query).sort({ createdAt: -1 });
+    const courses = await Course.aggregate([
+      { $match: matchQuery },
+      {
+        $lookup: {
+          from: 'videos',
+          localField: '_id',
+          foreignField: 'courseId',
+          as: 'videos'
+        }
+      },
+      {
+        $addFields: {
+          videoCount: { $size: '$videos' }
+        }
+      },
+      {
+        $project: {
+          videos: 0 // Do not send full video array to reduce payload
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    // Format _id back to id if needed (optional, typically Mongoose returns _id for aggregate)
+    // Wait, let's keep it as is, the frontend uses _id
+
     res.status(200).json(courses);
   } catch (error) {
+    console.error("Error fetching courses:", error);
     res.status(500).json({ error: 'Failed to fetch courses' });
   }
 };
@@ -58,10 +84,7 @@ export const updateCourse = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    // Prevent status update from this general update route
-    if (updateData.status) {
-      delete updateData.status;
-    }
+    // Status update is now allowed from this general update route
 
     const course = await Course.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
     if (!course) return res.status(404).json({ error: 'Course not found' });

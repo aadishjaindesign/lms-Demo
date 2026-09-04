@@ -34,44 +34,39 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="p-3 sm:p-4 md:p-8 max-w-4xl mx-auto">
-      <div className="bg-white rounded-[20px] p-4 sm:p-6 md:p-8 shadow-sm border border-gray-100">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">My Profile</h2>
+    <div className="flex flex-col gap-5 max-w-4xl mx-auto h-full px-1">
+      {/* Top Banner */}
+      <div className="bg-[#fceeed] rounded-2xl p-5 sm:p-6 flex items-center gap-4">
+        <div className="w-12 h-12 bg-white/60 rounded-xl flex items-center justify-center flex-shrink-0">
+          <svg className="w-6 h-6 text-[#c71e22]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+        </div>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Student Profile</h2>
+          <p className="text-gray-500 text-sm">View your account details</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 flex flex-col items-center justify-center min-h-[400px] border border-gray-100 flex-1">
+        <div className="w-28 h-28 rounded-3xl bg-red-50 text-[#c71e22] font-bold flex items-center justify-center text-5xl mb-6 shadow-sm border border-red-100 uppercase">
+          {data?.name?.charAt(0) || "S"}
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">{data?.name || "Student Name"}</h2>
+        <p className="text-[#c71e22] font-medium text-sm mb-10 px-3 py-1 bg-red-50 rounded-full">Student</p>
         
-        <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-[#fceeed] text-[#C62026] flex items-center justify-center font-bold text-4xl md:text-5xl shrink-0 mx-auto md:mx-0">
-            {data?.name?.charAt(0) || "S"}
+        <div className="w-full max-w-md space-y-3">
+          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-xl gap-2 border border-gray-100">
+            <span className="font-bold text-xs text-gray-500 uppercase tracking-wider">Student ID</span>
+            <span className="text-gray-900 font-medium break-all sm:break-normal">{data?.studentId || "N/A"}</span>
           </div>
-          
-          <div className="flex-1 space-y-4 w-full">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Full Name</label>
-                <div className="p-3 bg-gray-50 rounded-xl text-gray-900 font-medium">
-                  {data?.name || "Student Name"}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Student ID</label>
-                <div className="p-3 bg-gray-50 rounded-xl text-gray-900 font-medium break-all">
-                  {data?.studentId || "N/A"}
-                </div>
-              </div>
-              
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
-                <div className="p-3 bg-green-50 text-green-700 rounded-xl font-medium inline-block">
-                  Active
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-8 pt-6 border-t border-gray-100">
-              <p className="text-sm text-gray-500">
-                To update your profile information, please contact the administrator.
-              </p>
-            </div>
+          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-xl gap-2 border border-gray-100">
+            <span className="font-bold text-xs text-gray-500 uppercase tracking-wider">Phone Number</span>
+            <span className="text-gray-900 font-medium">{data?.phone || "N/A"}</span>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-between p-4 bg-gray-50 rounded-xl gap-2 border border-gray-100">
+            <span className="font-bold text-xs text-gray-500 uppercase tracking-wider">Account Status</span>
+            <span className={`font-bold text-sm px-2 py-0.5 rounded-full inline-flex items-center w-max ${data?.status === 'active' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
+              {data?.status ? data.status.charAt(0).toUpperCase() + data.status.slice(1) : 'Active'}
+            </span>
           </div>
         </div>
       </div>
