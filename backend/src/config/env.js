@@ -10,7 +10,7 @@ dotenv.config({ path: [
   path.join(__dirname, "../../.env")
 ] });
 
-const requiredVars = [
+const r2Vars = [
   'R2_BUCKET_NAME',
   'R2_ACCOUNT_ID',
   'R2_ACCESS_KEY_ID',
@@ -18,8 +18,7 @@ const requiredVars = [
   'R2_ENDPOINT'
 ];
 
-for (const v of requiredVars) {
-  if (!process.env[v]) {
-    throw new Error(`${v} is missing from environment variables`);
-  }
+const missingR2 = r2Vars.filter(v => !process.env[v]);
+if (missingR2.length > 0) {
+  console.warn(`⚠️  R2 storage not configured (missing: ${missingR2.join(', ')}). R2 video uploads will be disabled.`);
 }

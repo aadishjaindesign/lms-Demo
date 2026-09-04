@@ -48,7 +48,7 @@ export default function StudentDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full p-4 md:p-8">
+    <div className="flex flex-col gap-4 sm:gap-6 max-w-7xl mx-auto h-full px-3 sm:px-4 md:p-8">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-[#c71e22] to-red-900 rounded-[20px] p-6 md:p-10 shadow-sm text-white flex flex-col md:flex-row items-center justify-between gap-6">
         <div>

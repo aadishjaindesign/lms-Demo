@@ -92,13 +92,13 @@ export default function StudentDetailsPage() {
   }
 
   return (
-    <div className="p-8 text-gray-900 max-w-6xl mx-auto">
+    <div className="px-3 sm:px-4 md:p-8 py-4 sm:py-6 text-gray-900 max-w-6xl mx-auto">
       <Link href="/admin/students" className="text-sm font-medium text-gray-500 hover:text-gray-900 mb-6 inline-block transition-colors">
         &larr; Back to Students
       </Link>
       
-      <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
-        <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+      <div className="bg-white rounded-xl shadow overflow-hidden mb-6 sm:mb-8">
+        <div className="p-4 sm:p-6 md:p-8 border-b border-gray-100 flex flex-col md:flex-row md:items-start md:justify-between gap-4 sm:gap-6">
           <div className="min-w-0">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 break-words">{student.name}</h1>
             <p className="text-gray-500 mb-3">{student.phone}</p>
@@ -114,8 +114,8 @@ export default function StudentDetailsPage() {
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Course Access</h2>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Course Access</h2>
         <button 
           onClick={() => setIsAssignModalOpen(true)}
           className="bg-[#c71e22] hover:bg-[#a5191c] text-white px-5 py-2 rounded-lg shadow transition-colors font-medium text-sm"
