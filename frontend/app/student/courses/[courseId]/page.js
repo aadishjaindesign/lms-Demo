@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
+import HlsVideoPlayer from "@/components/HlsVideoPlayer";
 
 export default function StudentCourseDetailsPage() {
   const { courseId } = useParams();
@@ -24,7 +25,11 @@ export default function StudentCourseDetailsPage() {
 
   const handlePlayVideo = async (video) => {
     setPlayingVideo(video);
-    if (video.storageProvider === 'r2') {
+    if (video.hlsReady && video.storageProvider === 'r2') {
+      // It's a new HLS video
+      setPlaybackUrl(`/api/courses/${courseId}/videos/${video._id}/hls/master.m3u8`);
+    } else if (video.storageProvider === 'r2') {
+      // Old standard mp4 video
       try {
         const res = await fetchApi(`/courses/${courseId}/videos/${video._id}/playback-url`);
         if (res.ok) {
@@ -161,6 +166,9 @@ export default function StudentCourseDetailsPage() {
                       <div>
                         <span className="text-xs font-bold text-[#c71e22] tracking-wider uppercase mb-1.5 block">Lesson {String(index + 1).padStart(2, '0')}</span>
                         <h3 className="font-bold text-gray-900 line-clamp-2 text-lg leading-snug group-hover:text-[#c71e22] transition-colors break-words">{video.title}</h3>
+                        {video.processingStatus === 'processing' && (
+                          <span className="inline-block mt-2 text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Processing Video...</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -172,21 +180,32 @@ export default function StudentCourseDetailsPage() {
       </div>
 
       {playingVideo && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
-          <div className="bg-black rounded-xl overflow-hidden w-full max-w-4xl shadow-2xl relative flex flex-col">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-0 md:p-8 backdrop-blur-md">
+          <div className="bg-black md:rounded-2xl overflow-hidden w-full h-full md:h-auto max-w-7xl shadow-2xl relative flex flex-col">
             <div className="absolute top-2 right-2 md:top-4 md:right-4 z-10">
               <button onClick={() => setPlayingVideo(null)} className="bg-black/50 hover:bg-black/80 text-white rounded-full p-2 transition-colors">
                 <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
-            <video 
-              controls 
-              autoPlay 
-              className="w-full max-h-[80vh] bg-black"
-              src={playbackUrl}
-            >
-              Your browser does not support the video tag.
-            </video>
+            <div className="w-full relative bg-black flex items-center justify-center min-h-[30vh]">
+              {playingVideo.processingStatus === 'processing' ? (
+                <div className="text-white text-center p-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <h3 className="text-xl font-bold mb-2">Video is processing</h3>
+                  <p className="text-gray-400">Please check back in a few minutes.</p>
+                </div>
+              ) : playingVideo.hlsReady ? (
+                <HlsVideoPlayer 
+                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${playbackUrl}`} 
+                  isHls={true} 
+                />
+              ) : (
+                <HlsVideoPlayer 
+                  src={playbackUrl} 
+                  isHls={false} 
+                />
+              )}
+            </div>
             <div className="p-4 bg-gray-900 text-white flex flex-col sm:flex-row sm:justify-between gap-2">
               <h3 className="font-bold text-lg break-words">{playingVideo.title}</h3>
               {playingVideo.expiresAt && (

@@ -1,5 +1,5 @@
 import express from "express";
-import { uploadVideo, getCourseVideos, deleteVideo, generateSignature, initiateMultipartUpload, completeMultipartUpload, abortMultipartUpload, getPlaybackUrl } from "../controllers/videoController.js";
+import { uploadVideo, getCourseVideos, deleteVideo, generateSignature, initiateMultipartUpload, completeMultipartUpload, abortMultipartUpload, getPlaybackUrl, getHlsMasterPlaylist, getHlsVariantPlaylist } from "../controllers/videoController.js";
 import { verifyAdmin, verifyAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -21,6 +21,10 @@ router.post("/courses/:courseId/videos/multipart-upload/abort", verifyAdmin, abo
 
 // Secure Playback Route (Admin & Student)
 router.get("/courses/:courseId/videos/:videoId/playback-url", verifyAuth, getPlaybackUrl);
+
+// HLS Proxy Routes (Admin & Student)
+router.get("/courses/:courseId/videos/:videoId/hls/master.m3u8", verifyAuth, getHlsMasterPlaylist);
+router.get("/courses/:courseId/videos/:videoId/hls/:rendition/playlist.m3u8", verifyAuth, getHlsVariantPlaylist);
 
 // Get videos for a course (admin)
 router.get("/courses/:courseId/videos", verifyAdmin, getCourseVideos);

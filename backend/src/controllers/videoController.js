@@ -6,6 +6,7 @@ import { CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploa
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { hasCourseAccess } from "../services/courseAccessService.js";
+import { queueVideoForProcessing } from "../services/videoProcessingService.js";
 
 // Generate upload signature for direct Cloudinary chunked upload
 export const generateSignature = async (req, res) => {
@@ -40,6 +41,7 @@ export const generateSignature = async (req, res) => {
 export const uploadVideo = async (req, res) => {
   try {
     const { courseId } = req.params;
+    console.log(`[DEBUG] uploadVideo called for course ${courseId}`);
     // The video binary is uploaded directly to Cloudinary by the browser.
     // The frontend sends only the resulting metadata here.
     const { title, description, publicId, secureUrl, duration } = req.body;
@@ -194,6 +196,7 @@ export const initiateMultipartUpload = async (req, res) => {
 export const completeMultipartUpload = async (req, res) => {
   try {
     const { courseId } = req.params;
+    console.log(`[DEBUG] completeMultipartUpload called for course ${courseId}`);
     const { uploadId, objectKey, parts, title, description, size, mimeType, originalName } = req.body;
 
     const command = new CompleteMultipartUploadCommand({
@@ -222,9 +225,14 @@ export const completeMultipartUpload = async (req, res) => {
       expiresAt,
       uploadedAt: now,
       order,
+      processingStatus: "processing",
     });
 
     await video.save();
+    
+    // Queue the video for HLS transcoding
+    queueVideoForProcessing(video._id);
+    
     res.status(201).json(video);
   } catch (error) {
     console.error("Complete multipart error:", error);
@@ -288,5 +296,94 @@ export const getPlaybackUrl = async (req, res) => {
   } catch (error) {
     console.error("Get playback URL error:", error);
     res.status(500).json({ error: "Failed to generate playback URL" });
+  }
+};
+
+// Get HLS Master Playlist
+export const getHlsMasterPlaylist = async (req, res) => {
+  try {
+    const { courseId, videoId } = req.params;
+    const user = req.user;
+    
+    if (user.role === "student") {
+      const accessCheck = await hasCourseAccess(user.userId, courseId);
+      if (!accessCheck.hasAccess) return res.status(403).json({ error: "Access denied" });
+    } else if (user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized role" });
+    }
+
+    const video = await Video.findOne({ _id: videoId, courseId });
+    if (!video || !video.hlsReady || !video.hlsMasterPlaylist) {
+      return res.status(404).json({ error: "HLS not ready or found" });
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: video.hlsMasterPlaylist,
+    });
+    const response = await r2Client.send(command);
+    let masterPlaylistContent = await response.Body.transformToString();
+    
+    const apiBase = `/api/courses/${courseId}/videos/${videoId}/hls`;
+    masterPlaylistContent = masterPlaylistContent.replace(/([a-zA-Z0-9_-]+\.m3u8)/g, `${apiBase}/$1`);
+
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.status(200).send(masterPlaylistContent);
+  } catch (error) {
+    console.error("Get HLS master error:", error);
+    res.status(500).json({ error: "Failed to generate master playlist" });
+  }
+};
+
+// Get HLS Variant Playlist
+export const getHlsVariantPlaylist = async (req, res) => {
+  try {
+    const { courseId, videoId, rendition } = req.params;
+    const user = req.user;
+    
+    if (user.role === "student") {
+      const accessCheck = await hasCourseAccess(user.userId, courseId);
+      if (!accessCheck.hasAccess) return res.status(403).json({ error: "Access denied" });
+    } else if (user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized role" });
+    }
+
+    const video = await Video.findOne({ _id: videoId, courseId });
+    if (!video || !video.hlsReady) return res.status(404).json({ error: "HLS not ready" });
+
+    const variantKey = `videos/${courseId}/${videoId}/hls/${rendition}`;
+    const command = new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: variantKey,
+    });
+    
+    const response = await r2Client.send(command);
+    let playlistContent = await response.Body.transformToString();
+
+    const urlPromises = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line && !line.startsWith('#')) {
+        const tsKey = `videos/${courseId}/${videoId}/hls/${line}`;
+        const tsCommand = new GetObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: tsKey,
+        });
+        urlPromises.push(
+          getSignedUrl(r2Client, tsCommand, { expiresIn: 3600 }).then(url => {
+            lines[i] = url;
+          })
+        );
+      }
+    }
+    
+    // Wait for all signature generations in parallel
+    await Promise.all(urlPromises);
+
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.status(200).send(lines.join('\n'));
+  } catch (error) {
+    console.error("Get HLS variant error:", error);
+    res.status(500).json({ error: "Failed to generate variant playlist" });
   }
 };

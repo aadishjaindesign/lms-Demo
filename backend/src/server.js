@@ -12,6 +12,7 @@ import videoRoutes from './routes/videoRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { startVideoCleanupScheduler } from './services/videoCleanupService.js';
 import { startKeepAlive } from './services/keepAliveService.js';
+import { resumePendingVideos } from './services/videoProcessingService.js';
 
 dotenv.config();
 
@@ -60,6 +61,9 @@ const startServer = async () => {
   
   // Start keep-alive service to prevent Render from sleeping
   startKeepAlive();
+  
+  // Resume any HLS processing jobs that were stuck in "processing" state
+  resumePendingVideos();
   
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

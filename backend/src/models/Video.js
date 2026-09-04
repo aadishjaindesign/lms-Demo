@@ -56,6 +56,18 @@ const VideoSchema = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+    processingStatus: {
+      type: String,
+      enum: ["none", "processing", "ready", "failed"],
+      default: "none",
+    },
+    hlsReady: {
+      type: Boolean,
+      default: false,
+    },
+    hlsMasterPlaylist: {
+      type: String,
+    },
     uploadedAt: {
       type: Date,
       default: Date.now,
