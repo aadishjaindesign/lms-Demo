@@ -107,6 +107,28 @@ export const getCourseVideos = async (req, res) => {
 };
 
 // Delete a video
+export const updateVideo = async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    const { title, description } = req.body;
+
+    const video = await Video.findById(videoId);
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    if (title !== undefined) video.title = title;
+    if (description !== undefined) video.description = description;
+
+    await video.save();
+
+    res.status(200).json(video);
+  } catch (error) {
+    console.error("Update video error:", error);
+    res.status(500).json({ error: "Failed to update video" });
+  }
+};
+
 export const deleteVideo = async (req, res) => {
   try {
     const { videoId } = req.params;

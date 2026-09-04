@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 const router = express.Router();
 
 const extractUser = (req, res, next) => {
-  const possibleTokens = [req.cookies.student_token, req.cookies.admin_token, req.cookies.token].filter(Boolean);
+  const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token].filter(Boolean);
   
   for (const token of possibleTokens) {
     try {

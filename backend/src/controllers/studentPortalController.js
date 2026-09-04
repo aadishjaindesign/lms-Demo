@@ -17,22 +17,17 @@ export const getMyDashboard = async (req, res) => {
 
     const now = new Date();
     
-    // Get active course count
-    const activeAccessRecords = await CourseAccess.find({
+    // Get assigned course count (total course access records for this student)
+    const assignedCoursesCount = await CourseAccess.countDocuments({
       studentId,
-      status: 'active',
-      startDate: { $lte: now },
-      expiryDate: { $gte: new Date(now.setHours(0,0,0,0)) } // roughly
-    }).populate('courseId');
-
-    // Filter where course is also active
-    const activeCoursesCount = activeAccessRecords.filter(
-      record => record.courseId && record.courseId.status === 'active'
-    ).length;
+    });
 
     res.status(200).json({
       name: student.name,
-      activeCoursesCount
+      studentId: student.studentId,
+      phone: student.phone,
+      status: student.status,
+      assignedCoursesCount
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
@@ -64,8 +59,8 @@ export const getMyCourses = async (req, res) => {
       expiry.setHours(23, 59, 59, 999);
       if (now > expiry) return false;
 
-      // Course active check
-      if (!record.courseId || record.courseId.status !== 'active') return false;
+      // Course must exist
+      if (!record.courseId) return false;
 
       return true;
     }).map(record => ({
@@ -73,6 +68,7 @@ export const getMyCourses = async (req, res) => {
       name: record.courseId.name,
       description: record.courseId.description,
       thumbnail: record.courseId.thumbnail,
+      status: record.courseId.status,
       expiryDate: record.expiryDate
     }));
 

@@ -81,7 +81,7 @@ export default function PasswordPage() {
               required
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c71e22] focus:border-transparent transition-all min-w-0"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c71e22] focus:border-transparent transition-all min-w-0 text-gray-900"
               placeholder="Enter current password"
             />
           </div>
@@ -93,7 +93,7 @@ export default function PasswordPage() {
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c71e22] focus:border-transparent transition-all min-w-0"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c71e22] focus:border-transparent transition-all min-w-0 text-gray-900"
               placeholder="Enter new password"
             />
           </div>
@@ -105,7 +105,7 @@ export default function PasswordPage() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c71e22] focus:border-transparent transition-all min-w-0"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#c71e22] focus:border-transparent transition-all min-w-0 text-gray-900"
               placeholder="Confirm new password"
             />
           </div>
