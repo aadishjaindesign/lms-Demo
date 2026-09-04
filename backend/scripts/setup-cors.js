@@ -13,9 +13,13 @@ const corsCommand = new PutBucketCorsCommand({
     CORSRules: [
       {
         AllowedHeaders: ["*"],
-        AllowedMethods: ["GET", "PUT", "POST", "HEAD", "DELETE"],
-        AllowedOrigins: ["http://localhost:3000", process.env.FRONTEND_URL || "https://your-production-url.com"], 
-        ExposeHeaders: ["ETag", "Content-Length"],
+        AllowedMethods: ["GET", "PUT", "HEAD", "DELETE"],
+        AllowedOrigins: [
+          "http://localhost:3000",
+          "https://lms-demo-mauve.vercel.app",
+          "https://lms.jainscomputer.com"
+        ],
+        ExposeHeaders: ["ETag"],
         MaxAgeSeconds: 3600,
       },
     ],
