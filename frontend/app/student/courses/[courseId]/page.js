@@ -103,7 +103,7 @@ export default function StudentCourseDetailsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-4 md:px-8 py-6 md:py-8">
+    <div className="flex flex-col gap-4 sm:gap-6 max-w-7xl mx-auto h-full px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8">
       {/* Header */}
       <div className="mb-2">
         <Link href="/student/courses" className="text-sm font-medium text-gray-500 hover:text-gray-900 mb-4 inline-flex items-center gap-1 transition-colors">
@@ -115,7 +115,7 @@ export default function StudentCourseDetailsPage() {
       </div>
 
       {/* Videos List */}
-      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-4 md:p-8 flex-1">
+      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-3 sm:p-4 md:p-8 flex-1">
         <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
           <svg className="w-6 h-6 text-[#c71e22]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
           Course Videos ({videos.length})

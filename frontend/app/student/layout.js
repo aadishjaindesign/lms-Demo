@@ -119,7 +119,7 @@ Stack trace: ${err.stack}
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed md:relative z-30 w-64 h-full bg-white border-r border-gray-100 flex flex-col shadow-sm transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed md:relative z-30 w-64 h-screen bg-white border-r border-gray-100 flex flex-col shadow-sm transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-6 border-b border-gray-100 flex justify-between md:justify-center items-center">
           <img src="/logo@2x.png" alt="Logo" className="h-10" />
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-500 hover:text-gray-700">
@@ -187,7 +187,7 @@ Stack trace: ${err.stack}
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto p-1 sm:p-2">
           {children}
         </div>
       </main>

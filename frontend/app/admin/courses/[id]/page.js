@@ -100,15 +100,15 @@ export default function CourseDetailsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-4 md:px-8 py-6 md:py-8">
+    <div className="flex flex-col gap-4 sm:gap-6 max-w-7xl mx-auto h-full px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 sm:mb-4 gap-3 sm:gap-4">
         <div>
           <Link href="/admin/courses" className="text-sm font-medium text-gray-500 hover:text-gray-900 mb-2 inline-flex items-center gap-1 transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             Back to Courses
           </Link>
-          <h1 className="text-2xl md:text-[32px] font-bold text-gray-900 leading-tight break-words">{course.name}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-[32px] font-bold text-gray-900 leading-tight break-words">{course.name}</h1>
           <p className="text-gray-500 text-sm">{course.description || "Manage videos for this course"}</p>
         </div>
         <button
@@ -121,7 +121,7 @@ export default function CourseDetailsPage() {
       </div>
 
       {/* Videos List */}
-      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-4 md:p-8 flex-1">
+      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-3 sm:p-4 md:p-8 flex-1">
         <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-6 border-b border-gray-100 pb-4">Course Videos ({videos.length})</h2>
         
         {videos.length === 0 ? (
