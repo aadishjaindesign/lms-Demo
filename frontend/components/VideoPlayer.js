@@ -21,6 +21,15 @@ export default function VideoPlayer({ src, poster, isHls }) {
         videojs.Vhs.xhr.beforeRequest = function (options) {
           if (options.uri && options.uri.includes("/api/")) {
             options.withCredentials = true;
+            try {
+              const token = localStorage.getItem('token');
+              if (token) {
+                options.headers = options.headers || {};
+                options.headers.Authorization = `Bearer ${token}`;
+              }
+            } catch (e) {
+              console.warn("Could not access localStorage for video token", e);
+            }
           } else {
             options.withCredentials = false;
           }
