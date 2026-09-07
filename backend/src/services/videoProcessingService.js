@@ -1,6 +1,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import fs from 'fs';
+import { pipeline } from 'stream/promises';
 import path from 'path';
 import os from 'os';
 import https from 'https';
@@ -19,58 +20,70 @@ const BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const processVideoWorker = async (job, done) => {
   const { videoId } = job;
   try {
-    console.log(`[HLS] Job started for video ${videoId}`);
+    console.log(`[PROCESS] WORKER_STARTED for video ${videoId}`);
     const video = await Video.findById(videoId);
     if (!video || video.storageProvider !== 'r2' || !video.objectKey) {
       throw new Error(`Video not found or invalid storage provider for ${videoId}`);
     }
 
-    // 1. Generate Presigned URL for the input video
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: video.objectKey,
-    });
-    // Give it 6 hours to download/stream
-    const inputUrl = await getSignedUrl(r2Client, command, { expiresIn: 6 * 3600 });
+    console.log(`[PROCESS] JOB_RECEIVED for video ${videoId}`);
 
-    // 2. Prepare temporary directory
+    // 1. Prepare temporary directory
     const tempDir = path.join(os.tmpdir(), `hls_${videoId}`);
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    // 3. Download the video locally to avoid FFmpeg network stream SIGSEGV
-    console.log(`[HLS] Download started`);
+    // 2. Download the video locally via native AWS SDK Stream
+    console.log(`[PROCESS] SOURCE_DOWNLOAD_STARTED`);
     const inputFilePath = path.join(tempDir, 'input.mp4');
-    await new Promise((resolve, reject) => {
-      const fileStream = fs.createWriteStream(inputFilePath);
-      https.get(inputUrl, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download video, status code: ${response.statusCode}`));
-          return;
-        }
-        response.pipe(fileStream);
-        fileStream.on('finish', () => {
-          fileStream.close();
-          resolve();
-        });
-      }).on('error', (err) => {
-        fs.unlink(inputFilePath, () => {}); // Delete the file async.
-        reject(err);
-      });
+    
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: video.objectKey,
     });
-    console.log(`[HLS] Download completed`);
+    
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.error(`[PROCESS][ERROR] Download timed out for video ${videoId}`);
+      abortController.abort(new Error('Download timeout after 5 minutes'));
+    }, 5 * 60 * 1000); // 5 minutes timeout
+    
+    const response = await r2Client.send(command, { abortSignal: abortController.signal });
+    
+    let downloadedBytes = 0;
+    response.Body.on('data', (chunk) => {
+      downloadedBytes += chunk.length;
+      // Log progress roughly every 5MB to avoid console spam
+      if (downloadedBytes % (5 * 1024 * 1024) < chunk.length) {
+        console.log(`[PROCESS] Downloaded ${(downloadedBytes / (1024 * 1024)).toFixed(2)} MB`);
+      }
+    });
 
-    // 4. Setup HLS variants based on local file
-    console.log(`[HLS] FFmpeg started`);
+    const fileStream = fs.createWriteStream(inputFilePath);
+    
+    try {
+      await pipeline(response.Body, fileStream, { signal: abortController.signal });
+    } catch (downloadErr) {
+      console.error(`[PROCESS][ERROR] Pipeline failed during download:`, downloadErr.message);
+      throw downloadErr; // Will be caught by the outer try-catch for DB update and cleanup
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    
+    console.log(`[PROCESS] SOURCE_DOWNLOAD_COMPLETED`);
+
+    // 3. Setup HLS variants based on local file
+    console.log(`[PROCESS] FFMPEG_STARTED`);
     
     await new Promise((resolve, reject) => {
       ffmpeg(inputFilePath, { timeout: 432000 })
         .addOptions([
-          '-threads 0',
+          '-threads 4',                // Use 4 threads for parallel processing
           '-profile:v main',
-          '-preset ultrafast', // Fast encoding for CPU
-          '-g 48', // Keyframe interval
+          '-preset ultrafast',         // Maximum speed preset
+          '-tune fastdecode',          // Fast decoding optimization
+          '-g 48',
           '-sc_threshold 0',
           '-hls_time 6',
           '-hls_playlist_type vod',
@@ -110,13 +123,11 @@ const processVideoWorker = async (job, done) => {
         ])
         
         .on('error', (err) => {
-          console.error('[HLS ERROR]', err);
+          console.error('[PROCESS][ERROR] FFmpeg error:', err);
           reject(err);
         })
         .on('end', () => {
-          console.log('[HLS] 360p completed');
-          console.log('[HLS] 480p completed');
-          console.log('[HLS] 720p completed');
+          console.log('[PROCESS] FFMPEG_COMPLETED');
           resolve();
         })
         .run();
@@ -133,10 +144,10 @@ const processVideoWorker = async (job, done) => {
 720p.m3u8`;
 
     fs.writeFileSync(path.join(tempDir, 'master.m3u8'), masterPlaylistContent);
-    console.log('[HLS] Master playlist completed');
+    console.log('[PROCESS] HLS_GENERATION_COMPLETED');
 
-    // 5. Upload all HLS files to R2
-    console.log(`[HLS] Uploading HLS segments to R2...`);
+    // 4. Upload all HLS files to R2
+    console.log(`[PROCESS] HLS_UPLOAD_STARTED`);
     const files = fs.readdirSync(tempDir);
     const hlsBaseKey = `videos/${video.courseId}/${video._id}/hls`;
     
@@ -158,26 +169,31 @@ const processVideoWorker = async (job, done) => {
     }
     
     await Promise.all(uploadPromises);
-    console.log(`[HLS] R2 upload completed`);
+    console.log(`[PROCESS] HLS_UPLOAD_COMPLETED`);
 
-    // 6. Cleanup local temp files
+    // 5. Cleanup local temp files
     fs.rmSync(tempDir, { recursive: true, force: true });
 
-    // 7. Update Video status in DB
-    video.hlsReady = true;
-    video.processingStatus = 'ready';
-    video.hlsMasterPlaylist = `${hlsBaseKey}/master.m3u8`;
-    await video.save();
-
-    console.log(`[HLS] Database updated: hlsReady=true`);
-    console.log(`[HLS] Job completed`);
+    // 6. Update Video status in DB
+    console.log(`[PROCESS] DB_UPDATE_STARTED`);
+    await Video.findByIdAndUpdate(
+      videoId,
+      {
+        hlsReady: true,
+        processingStatus: 'ready',
+        hlsMasterPlaylist: `${hlsBaseKey}/master.m3u8`
+      },
+      { new: true, upsert: false }
+    );
+    console.log(`[PROCESS] DB_UPDATE_COMPLETED`);
+    console.log(`[PROCESS] PROCESSING_COMPLETED`);
     done(null);
   } catch (error) {
-    console.error(`[HLS ERROR]`, error);
+    console.error(`[PROCESS][ERROR] Processing failed:`, error.message);
     try {
       await Video.findByIdAndUpdate(videoId, { processingStatus: 'failed' });
     } catch (dbErr) {
-      console.error(`[HLS ERROR] Failed to update video status:`, dbErr);
+      console.error(`[PROCESS][ERROR] Failed to update video status:`, dbErr.message);
     }
     
     // Cleanup on error
@@ -185,9 +201,9 @@ const processVideoWorker = async (job, done) => {
     if (fs.existsSync(tempDir)) {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
-        console.log(`[HLS] Cleanup completed after error`);
+        console.log(`[PROCESS] Cleanup completed after error`);
       } catch (cleanupErr) {
-        console.error(`[HLS ERROR] Cleanup failed:`, cleanupErr);
+        console.error(`[PROCESS][ERROR] Cleanup failed:`, cleanupErr.message);
       }
     }
     
@@ -199,10 +215,10 @@ const processVideoWorker = async (job, done) => {
 export const videoQueue = fastq(processVideoWorker, 1);
 
 export const queueVideoForProcessing = (videoId) => {
-  console.log(`[HLS] Job queued`);
+  console.log(`[PROCESS] JOB_CREATED for video ${videoId}`);
   videoQueue.push({ videoId }, (err) => {
     if (err) {
-      console.error(`[HLS ERROR]`, err);
+      console.error(`[PROCESS][ERROR] Queue push failed:`, err.message);
     }
   });
 };

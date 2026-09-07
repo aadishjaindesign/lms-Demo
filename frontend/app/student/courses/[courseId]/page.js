@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { fetchApi } from "@/lib/api";
-import HlsVideoPlayer from "@/components/HlsVideoPlayer";
+import { fetchApi, API_URL } from "@/lib/api";
+import dynamic from "next/dynamic";
+const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), { ssr: false });
 
 export default function StudentCourseDetailsPage() {
   const { courseId } = useParams();
@@ -14,7 +15,6 @@ export default function StudentCourseDetailsPage() {
   const [error, setError] = useState("");
   const [playingVideo, setPlayingVideo] = useState(null);
   const [playbackUrl, setPlaybackUrl] = useState("");
-  const [videoQuality, setVideoQuality] = useState("auto");
   const videoRef = useRef(null);
   const currentTimeRef = useRef(0);
 
@@ -26,13 +26,21 @@ export default function StudentCourseDetailsPage() {
     return url;
   };
 
+  const formatDuration = (seconds) => {
+    if (!seconds) return "";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   const handlePlayVideo = async (video) => {
     setPlayingVideo(video);
-    setVideoQuality("auto");
     currentTimeRef.current = 0;
     if (video.hlsReady && video.storageProvider === 'r2') {
       // It's a new HLS video
-      setPlaybackUrl(`/api/courses/${courseId}/videos/${video._id}/hls/master.m3u8`);
+      setPlaybackUrl(`${API_URL}/courses/${courseId}/videos/${video._id}/hls/master.m3u8`);
     } else if (video.storageProvider === 'r2') {
       // Old standard mp4 video
       try {
@@ -102,6 +110,39 @@ export default function StudentCourseDetailsPage() {
     fetchCourseData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
+
+  // Sync playingVideo if videos array updates in the background
+  useEffect(() => {
+    if (playingVideo) {
+      const updated = videos.find((v) => v._id === playingVideo._id);
+      if (updated && updated.processingStatus !== playingVideo.processingStatus) {
+        setPlayingVideo(updated);
+        if (updated.hlsReady && updated.storageProvider === 'r2') {
+          setPlaybackUrl(`${API_URL}/courses/${courseId}/videos/${updated._id}/hls/master.m3u8`);
+        }
+      }
+    }
+  }, [videos, playingVideo, courseId]);
+
+  // Poll for processing videos every 5 seconds
+  useEffect(() => {
+    const hasProcessing = videos.some((v) => v.processingStatus === 'processing');
+    if (!hasProcessing) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const videoRes = await fetchApi(`/student/courses/${courseId}/videos`);
+        if (videoRes.ok) {
+          const videoData = await videoRes.json();
+          setVideos(videoData);
+        }
+      } catch (err) {
+        // silently ignore polling errors
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [videos, courseId]);
 
   if (loading) {
     return (
@@ -240,16 +281,14 @@ export default function StudentCourseDetailsPage() {
                 </div>
               ) : playingVideo.hlsReady ? (
                 <div className="w-full h-full bg-black">
-                  <HlsVideoPlayer 
+                  <VideoPlayer 
                     src={playbackUrl} 
                     isHls={true} 
-                    quality={videoQuality}
-                    onQualityChange={setVideoQuality}
                   />
                 </div>
               ) : (
                 <div className="w-full h-full bg-black">
-                  <HlsVideoPlayer 
+                  <VideoPlayer 
                     src={playbackUrl} 
                     isHls={false} 
                   />
@@ -453,6 +492,11 @@ export default function StudentCourseDetailsPage() {
                         ) : (
                           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                             Video Lesson
+                          </span>
+                        )}
+                        {video.duration > 0 && (
+                          <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                            {formatDuration(video.duration)}
                           </span>
                         )}
                       </div>

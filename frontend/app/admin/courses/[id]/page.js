@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchApi, API_URL } from "@/lib/api";
+import dynamic from "next/dynamic";
+const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), { ssr: false });
 
 export default function CourseDetailsPage() {
   const { id } = useParams();
@@ -27,7 +29,10 @@ export default function CourseDetailsPage() {
 
   const handlePlayVideo = async (video) => {
     setPlayingVideo(video);
-    if (video.storageProvider === 'r2') {
+    if (video.hlsReady && video.storageProvider === 'r2') {
+      // Use HLS route
+      setPlaybackUrl(`${API_URL}/courses/${id}/videos/${video._id}/hls/master.m3u8`);
+    } else if (video.storageProvider === 'r2') {
       try {
         const res = await fetchApi(`/courses/${id}/videos/${video._id}/playback-url`);
         if (res.ok) {
@@ -68,6 +73,39 @@ export default function CourseDetailsPage() {
   useEffect(() => {
     fetchCourseData();
   }, [id]);
+
+  // Sync playingVideo if videos array updates in the background
+  useEffect(() => {
+    if (playingVideo) {
+      const updated = videos.find((v) => v._id === playingVideo._id);
+      if (updated && updated.processingStatus !== playingVideo.processingStatus) {
+        setPlayingVideo(updated);
+        if (updated.hlsReady && updated.storageProvider === 'r2') {
+          setPlaybackUrl(`${API_URL}/courses/${id}/videos/${updated._id}/hls/master.m3u8`);
+        }
+      }
+    }
+  }, [videos, playingVideo, id]);
+
+  // Poll for processing videos every 5 seconds
+  useEffect(() => {
+    const hasProcessing = videos.some((v) => v.processingStatus === 'processing');
+    if (!hasProcessing) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const videoRes = await fetchApi(`/courses/${id}/videos`);
+        if (videoRes.ok) {
+          const videoData = await videoRes.json();
+          setVideos(videoData);
+        }
+      } catch (err) {
+        // silently ignore polling errors
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [videos, id]);
 
   const handleDeleteVideo = async (videoId) => {
     if (!confirm("Are you sure you want to delete this video?")) return;
@@ -222,14 +260,20 @@ export default function CourseDetailsPage() {
                 <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
-            <video 
-              src={playbackUrl} 
-              controls 
-              autoPlay 
-              className="w-full max-h-[80vh] bg-black"
-            >
-              Your browser does not support the video tag.
-            </video>
+            {playingVideo.processingStatus === 'processing' ? (
+              <div className="w-full aspect-video bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#c71e22] mx-auto mb-4"></div>
+                <h3 className="text-xl font-bold mb-2">Video is processing</h3>
+                <p className="text-gray-400">Please check back in a few minutes.</p>
+              </div>
+            ) : (
+              <div className="w-full bg-black aspect-video relative flex items-center justify-center">
+                <VideoPlayer 
+                  src={playbackUrl} 
+                  isHls={playingVideo.hlsReady && playingVideo.storageProvider === 'r2'}
+                />
+              </div>
+            )}
             <div className="p-4 bg-gray-900 text-white flex justify-between items-center">
               <h3 className="font-bold text-base">{playingVideo.title}</h3>
               {playingVideo.expiresAt && (

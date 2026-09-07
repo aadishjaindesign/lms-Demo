@@ -218,7 +218,7 @@ export const initiateMultipartUpload = async (req, res) => {
 export const completeMultipartUpload = async (req, res) => {
   try {
     const { courseId } = req.params;
-    console.log(`[DEBUG] completeMultipartUpload called for course ${courseId}`);
+    console.log(`[PROCESS] UPLOAD_RECEIVED for course ${courseId}`);
     const { uploadId, objectKey, parts, title, description, size, mimeType, originalName } = req.body;
 
     const command = new CompleteMultipartUploadCommand({
@@ -228,7 +228,9 @@ export const completeMultipartUpload = async (req, res) => {
       MultipartUpload: { Parts: parts }, // array of { ETag, PartNumber }
     });
 
+    console.log(`[PROCESS] R2_UPLOAD_STARTED`);
     await r2Client.send(command);
+    console.log(`[PROCESS] R2_UPLOAD_COMPLETED`);
 
     const videoCount = await Video.countDocuments({ courseId });
     const order = videoCount + 1;
@@ -251,13 +253,14 @@ export const completeMultipartUpload = async (req, res) => {
     });
 
     await video.save();
-    
-    // Queue the video for HLS transcoding
+    console.log(`[PROCESS] VIDEO_DB_CREATED videoId=${video._id}`);
+
+    // Queue for HLS processing
     queueVideoForProcessing(video._id);
-    
-    res.status(201).json(video);
+
+    res.status(200).json(video);
   } catch (error) {
-    console.error("Complete multipart error:", error);
+    console.error("[PROCESS][ERROR] Complete multipart error:", error.message);
     res.status(500).json({ error: "Failed to complete multipart upload" });
   }
 };
@@ -382,25 +385,16 @@ export const getHlsVariantPlaylist = async (req, res) => {
     const response = await r2Client.send(command);
     let playlistContent = await response.Body.transformToString();
 
-    const urlPromises = [];
+    const lines = playlistContent.split('\n');
+    const r2PublicDomain = process.env.R2_PUBLIC_DOMAIN || `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com`;
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (line && !line.startsWith('#')) {
-        const tsKey = `videos/${courseId}/${videoId}/hls/${line}`;
-        const tsCommand = new GetObjectCommand({
-          Bucket: process.env.R2_BUCKET_NAME,
-          Key: tsKey,
-        });
-        urlPromises.push(
-          getSignedUrl(r2Client, tsCommand, { expiresIn: 3600 }).then(url => {
-            lines[i] = url;
-          })
-        );
+        // Construct the direct CDN/Public URL instead of signing
+        lines[i] = `${r2PublicDomain}/videos/${courseId}/${videoId}/hls/${line}`;
       }
     }
-    
-    // Wait for all signature generations in parallel
-    await Promise.all(urlPromises);
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.status(200).send(lines.join('\n'));

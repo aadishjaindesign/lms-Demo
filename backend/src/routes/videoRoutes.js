@@ -24,7 +24,7 @@ router.get("/courses/:courseId/videos/:videoId/playback-url", verifyAuth, getPla
 
 // HLS Proxy Routes (Admin & Student)
 router.get("/courses/:courseId/videos/:videoId/hls/master.m3u8", verifyAuth, getHlsMasterPlaylist);
-router.get("/courses/:courseId/videos/:videoId/hls/:rendition/playlist.m3u8", verifyAuth, getHlsVariantPlaylist);
+router.get("/courses/:courseId/videos/:videoId/hls/:rendition", verifyAuth, getHlsVariantPlaylist);
 
 // Get videos for a course (admin)
 router.get("/courses/:courseId/videos", verifyAdmin, getCourseVideos);
