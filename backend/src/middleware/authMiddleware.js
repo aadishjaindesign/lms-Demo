@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 export const verifyAdmin = (req, res, next) => {
-  const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token].filter(Boolean);
+  const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token, req.query.token].filter(Boolean);
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     possibleTokens.push(authHeader.substring(7));
@@ -35,7 +35,7 @@ export const verifyAdmin = (req, res, next) => {
 };
 
 export const verifyStudent = (req, res, next) => {
-  const possibleTokens = [req.cookies.student_token, req.cookies.admin_token, req.cookies.token].filter(Boolean);
+  const possibleTokens = [req.cookies.student_token, req.cookies.admin_token, req.cookies.token, req.query.token].filter(Boolean);
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     possibleTokens.push(authHeader.substring(7));
@@ -69,7 +69,7 @@ export const verifyStudent = (req, res, next) => {
 };
 
 export const verifyAuth = (req, res, next) => {
-  const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token].filter(Boolean);
+  const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token, req.query.token].filter(Boolean);
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     possibleTokens.push(authHeader.substring(7));
