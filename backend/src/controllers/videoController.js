@@ -346,16 +346,13 @@ export const completeDirectUpload = async (req, res) => {
 
     await video.save();
     console.log(`[PROCESS] QUEUING_VIDEO ${video._id}`);
-    
     // Fire and forget
-    queueVideoForProcessing(video._id.toString(), courseId).catch(err => {
-      console.error(`Failed to process video ${video._id}:`, err);
-    });
+    queueVideoForProcessing(video._id.toString());
 
     res.status(200).json({ message: "Upload completed and queued for processing", video });
   } catch (error) {
     console.error("Complete direct upload error:", error);
-    res.status(500).json({ error: "Failed to finalize upload" });
+    res.status(500).json({ error: error.message || "Failed to finalize upload" });
   }
 };
 

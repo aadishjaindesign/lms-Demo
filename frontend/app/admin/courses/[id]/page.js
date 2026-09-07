@@ -454,7 +454,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           objectKey,
-          title: file.name.split('.')[0] || "Untitled",
+          title: title.trim() || file.name.split('.')[0] || "Untitled",
           size: file.size,
           mimeType: file.type || "video/mp4",
           originalName: file.name
