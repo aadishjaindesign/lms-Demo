@@ -24,7 +24,14 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem("admin_email", email);
+        try {
+          localStorage.setItem("admin_email", email);
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+        } catch (e) {
+          console.warn("localStorage not available", e);
+        }
         router.push("/admin/students");
       } else {
         setError(data.error || "Login failed");

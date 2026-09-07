@@ -42,3 +42,9 @@ backend/.env
 # Local Database Storage
 data/
 backend/data/
+
+# Test Artifacts and Logs
+*.mp4
+backend/dev-tools/*.mp4
+backend/backend_logs.txt
+backend/dev-tools/*.txt

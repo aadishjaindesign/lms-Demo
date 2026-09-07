@@ -8,6 +8,21 @@ export const fetchApi = async (endpoint, options = {}) => {
   // ensure credentials is set to 'include' for CORS cookies
   finalOptions.credentials = 'include';
 
+  // Fallback for mobile: attach token from localStorage if available
+  if (typeof window !== 'undefined') {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        finalOptions.headers = {
+          ...finalOptions.headers,
+          'Authorization': `Bearer ${token}`
+        };
+      }
+    } catch (e) {
+      console.warn("localStorage access denied or unavailable", e);
+    }
+  }
+
   const response = await fetch(url, finalOptions);
 
   if (response.status === 401) {

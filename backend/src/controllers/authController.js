@@ -30,8 +30,8 @@ export const adminLogin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
-    generateTokenAndSetCookie(res, { role: 'admin', userId: admin._id });
-    res.status(200).json({ success: true, message: 'Admin logged in successfully' });
+    const token = generateTokenAndSetCookie(res, { role: 'admin', userId: admin._id });
+    res.status(200).json({ success: true, message: 'Admin logged in successfully', token });
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -49,8 +49,8 @@ export const studentLogin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, student.password);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
-    generateTokenAndSetCookie(res, { role: 'student', userId: student._id });
-    res.status(200).json({ success: true, message: 'Student logged in successfully' });
+    const token = generateTokenAndSetCookie(res, { role: 'student', userId: student._id });
+    res.status(200).json({ success: true, message: 'Student logged in successfully', token });
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }

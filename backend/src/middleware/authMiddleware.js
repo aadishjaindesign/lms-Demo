@@ -2,6 +2,10 @@ import jwt from 'jsonwebtoken';
 
 export const verifyAdmin = (req, res, next) => {
   const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token].filter(Boolean);
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    possibleTokens.push(authHeader.substring(7));
+  }
   
   if (possibleTokens.length === 0) {
     return res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -32,6 +36,10 @@ export const verifyAdmin = (req, res, next) => {
 
 export const verifyStudent = (req, res, next) => {
   const possibleTokens = [req.cookies.student_token, req.cookies.admin_token, req.cookies.token].filter(Boolean);
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    possibleTokens.push(authHeader.substring(7));
+  }
   
   if (possibleTokens.length === 0) {
     return res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -62,6 +70,10 @@ export const verifyStudent = (req, res, next) => {
 
 export const verifyAuth = (req, res, next) => {
   const possibleTokens = [req.cookies.admin_token, req.cookies.student_token, req.cookies.token].filter(Boolean);
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    possibleTokens.push(authHeader.substring(7));
+  }
   
   if (possibleTokens.length === 0) {
     return res.status(401).json({ success: false, message: 'Unauthorized' });

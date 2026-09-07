@@ -40,6 +40,13 @@ export default function StudentLoginPage() {
       const data = await res.json();
       
       if (res.ok) {
+        try {
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+        } catch (e) {
+          console.warn("localStorage not available", e);
+        }
         router.push("/student/courses");
       } else {
         setError(data.error || "Login failed");
