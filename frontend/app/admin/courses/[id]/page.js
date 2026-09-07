@@ -311,16 +311,6 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
   useEffect(() => {
     const saved = localStorage.getItem(`r2_upload_${courseId}`);
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.uploadId && parsed.objectKey) {
-           fetchApi(`/courses/${courseId}/videos/multipart-upload/abort`, {
-               method: "POST",
-               headers: { "Content-Type": "application/json" },
-               body: JSON.stringify({ uploadId: parsed.uploadId, objectKey: parsed.objectKey })
-           }).catch(() => {});
-        }
-      } catch (e) {}
       localStorage.removeItem(`r2_upload_${courseId}`);
     }
 
@@ -337,14 +327,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
       if (statusRef.current === "UPLOADING" || statusRef.current === "PROCESSING") {
         isCancelled.current = true;
         activeXhrs.current.forEach(xhr => xhr.abort());
-        if (uploadInfo.current) {
-          fetchApi(`/courses/${courseId}/videos/multipart-upload/abort`, {
-             method: "POST",
-             headers: { "Content-Type": "application/json" },
-             body: JSON.stringify(uploadInfo.current)
-          }).catch(() => {});
-          localStorage.removeItem(`r2_upload_${courseId}`);
-        }
+        localStorage.removeItem(`r2_upload_${courseId}`);
       }
     };
   }, [courseId]);
@@ -354,14 +337,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
     setStatus("CANCELLED");
     activeXhrs.current.forEach(xhr => xhr.abort());
     activeXhrs.current.clear();
-    if (uploadInfo.current) {
-       fetchApi(`/courses/${courseId}/videos/multipart-upload/abort`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(uploadInfo.current)
-       }).catch(() => {});
-       localStorage.removeItem(`r2_upload_${courseId}`);
-    }
+    localStorage.removeItem(`r2_upload_${courseId}`);
   };
 
   const attemptClose = () => {
@@ -397,160 +373,90 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
     const startTime = Date.now();
 
     try {
-      const minChunkSize = 5 * 1024 * 1024;
-      const totalSize = file.size;
-      const chunkSize = minChunkSize; 
-      const totalParts = Math.ceil(totalSize / chunkSize);
-
-      const initRes = await fetchApi(`/courses/${courseId}/videos/multipart-upload/initiate`, {
+      const initRes = await fetchApi(`/courses/${courseId}/videos/direct-upload/url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, parts: totalParts }),
+        body: JSON.stringify({ filename: file.name, contentType: file.type || "video/mp4" }),
       });
-      if (!initRes.ok) throw new Error("Failed to initiate upload");
+      if (!initRes.ok) throw new Error("Failed to get upload URL");
       
-      const { uploadId, objectKey, presignedUrls } = await initRes.json();
-      uploadInfo.current = { uploadId, objectKey };
-      localStorage.setItem(`r2_upload_${courseId}`, JSON.stringify({ uploadId, objectKey }));
+      const { uploadUrl, objectKey } = await initRes.json();
+      uploadInfo.current = { objectKey };
       
       if (isCancelled.current) throw new Error("Upload cancelled");
 
-      const uploadedParts = [];
-      const partsToUpload = [...presignedUrls];
-      let currentTotalBytes = 0;
       let lastUpdateTime = 0;
+      let lastLoaded = 0;
       
-      const uploadPart = async (partInfo) => {
-        const { partNumber, url } = partInfo;
-        const start = (partNumber - 1) * chunkSize;
-        const end = Math.min(start + chunkSize, totalSize);
-        const chunk = file.slice(start, end);
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        activeXhrs.current.add(xhr);
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
         
-        let chunkRetries = 0;
-        let chunkSuccess = false;
-        
-        while (!chunkSuccess && chunkRetries < 3) {
-          if (isCancelled.current) throw new Error("Upload cancelled");
-          try {
-            await new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest();
-              activeXhrs.current.add(xhr);
-              xhr.open("PUT", url);
-              
-              let loadedRef = 0;
-              xhr.upload.onprogress = (event) => {
-                if (isCancelled.current) {
-                  xhr.abort();
-                  return;
-                }
-                if (event.lengthComputable) {
-                  const diff = event.loaded - loadedRef;
-                  loadedRef = event.loaded;
-                  currentTotalBytes += diff;
-                  
-                  const now = Date.now();
-                  if (now - lastUpdateTime > 250) {
-                    lastUpdateTime = now;
-                    const elapsedSeconds = (now - startTime) / 1000;
-                    const currentAvgSpeed = elapsedSeconds > 0 ? currentTotalBytes / elapsedSeconds : 0;
-                    const remainingBytes = Math.max(0, totalSize - currentTotalBytes);
-                    const etaSeconds = currentAvgSpeed > 0 ? remainingBytes / currentAvgSpeed : 0;
-                    
-                    setUploadedBytes(currentTotalBytes);
-                    setUploadProgress(Math.min(100, Math.round((currentTotalBytes / totalSize) * 100)));
-                    setUploadSpeed(currentAvgSpeed);
-                    setTimeRemaining(etaSeconds);
-                  }
-                }
-              };
-              
-              xhr.onload = () => {
-                activeXhrs.current.delete(xhr);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  const etag = xhr.getResponseHeader("ETag") || xhr.getResponseHeader("etag");
-                  if(etag) {
-                      uploadedParts.push({ ETag: etag.replace(/"/g, ""), PartNumber: partNumber });
-                      resolve();
-                  } else {
-                      reject(new Error("Missing ETag in response"));
-                  }
-                } else {
-                  reject(new Error(`HTTP ${xhr.status} ${xhr.statusText}`));
-                }
-              };
-              xhr.onerror = () => {
-                activeXhrs.current.delete(xhr);
-                reject(new Error("Network error"));
-              };
-              xhr.onabort = () => {
-                activeXhrs.current.delete(xhr);
-                reject(new Error("Upload cancelled"));
-              };
-              xhr.send(chunk);
-            });
-            chunkSuccess = true;
-          } catch (err) {
-             if (err.message === "Upload cancelled") throw err;
-             chunkRetries++;
-             if (chunkRetries >= 3) {
-               throw err;
-             }
-             await new Promise(r => setTimeout(r, 2000));
+        xhr.upload.onprogress = (event) => {
+          if (isCancelled.current) {
+            xhr.abort();
+            return;
           }
-        }
-      };
-
-      const concurrency = 6;
-      let currentIndex = 0;
-      const executing = [];
-      
-      const enqueue = async () => {
-         while (currentIndex < partsToUpload.length) {
-            if (isCancelled.current) throw new Error("Upload cancelled");
-            const partInfo = partsToUpload[currentIndex++];
-            const p = uploadPart(partInfo);
-            executing.push(p);
-            
-            try {
-               await p;
-            } catch (err) {
-               throw err;
-            } finally {
-               const idx = executing.indexOf(p);
-               if (idx !== -1) executing.splice(idx, 1);
+          if (event.lengthComputable) {
+            const now = Date.now();
+            if (now - lastUpdateTime > 250) {
+              const diffBytes = event.loaded - lastLoaded;
+              const diffTime = (now - lastUpdateTime) / 1000;
+              const speed = diffTime > 0 ? diffBytes / diffTime : 0;
+              
+              lastUpdateTime = now;
+              lastLoaded = event.loaded;
+              
+              setUploadedBytes(event.loaded);
+              setUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+              setUploadSpeed(speed);
+              
+              const remainingBytes = Math.max(0, event.total - event.loaded);
+              const etaSeconds = speed > 0 ? remainingBytes / speed : 0;
+              setTimeRemaining(etaSeconds);
             }
-         }
-      };
-      
-      const workers = [];
-      for (let i = 0; i < Math.min(concurrency, partsToUpload.length); i++) {
-         workers.push(enqueue());
-      }
-      
-      await Promise.all(workers);
+          }
+        };
+        
+        xhr.onload = () => {
+          activeXhrs.current.delete(xhr);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`HTTP ${xhr.status} ${xhr.statusText}`));
+          }
+        };
+        
+        xhr.onerror = () => {
+          activeXhrs.current.delete(xhr);
+          reject(new Error("Network error"));
+        };
+        
+        xhr.onabort = () => {
+          activeXhrs.current.delete(xhr);
+          reject(new Error("Upload cancelled"));
+        };
+        
+        xhr.send(file);
+      });
 
       if (isCancelled.current) throw new Error("Upload cancelled");
 
-      setUploadedBytes(totalSize);
+      setUploadedBytes(file.size);
       setUploadProgress(100);
-      setUploadSpeed(totalSize / ((Date.now() - startTime) / 1000));
       setTimeRemaining(0);
-
       setStatus("PROCESSING");
       
-      uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
-
-      const saveRes = await fetchApi(`/courses/${courseId}/videos/multipart-upload/complete`, {
+      const saveRes = await fetchApi(`/courses/${courseId}/videos/direct-upload/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          uploadId,
           objectKey,
-          parts: uploadedParts,
-          title,
-          description: "",
-          size: totalSize,
-          mimeType: file.type,
+          title: file.name.split('.')[0] || "Untitled",
+          size: file.size,
+          mimeType: file.type || "video/mp4",
           originalName: file.name
         }),
       });

@@ -2,7 +2,7 @@ import Video from "../models/Video.js";
 import Course from "../models/Course.js";
 import { cloudinary } from "../config/cloudinary.js";
 import { r2Client } from "../config/r2.js";
-import { CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand, AbortMultipartUploadCommand } from "@aws-sdk/client-s3";
+import { CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand, AbortMultipartUploadCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { hasCourseAccess } from "../services/courseAccessService.js";
@@ -268,10 +268,8 @@ export const completeMultipartUpload = async (req, res) => {
 // Abort R2 Multipart Upload
 export const abortMultipartUpload = async (req, res) => {
   try {
+    const { courseId } = req.params;
     const { uploadId, objectKey } = req.body;
-    if (!uploadId || !objectKey) {
-      return res.status(400).json({ error: "Missing uploadId or objectKey" });
-    }
 
     const command = new AbortMultipartUploadCommand({
       Bucket: process.env.R2_BUCKET_NAME,
@@ -280,10 +278,84 @@ export const abortMultipartUpload = async (req, res) => {
     });
 
     await r2Client.send(command);
-    res.status(200).json({ message: "Multipart upload aborted successfully" });
+    res.status(200).json({ message: "Multipart upload aborted" });
   } catch (error) {
     console.error("Abort multipart error:", error);
     res.status(500).json({ error: "Failed to abort multipart upload" });
+  }
+};
+
+// Generate Direct Upload Presigned URL
+export const getDirectUploadUrl = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { filename, contentType } = req.body;
+    
+    if (!filename) {
+      return res.status(400).json({ error: "Filename is required" });
+    }
+
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const uuid = crypto.randomUUID();
+    const objectKey = `videos/${courseId}/${uuid}-${sanitizedFilename}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: objectKey,
+      ContentType: contentType || "video/mp4",
+    });
+
+    // 1 hour expiration for the upload URL
+    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+
+    res.status(200).json({ uploadUrl, objectKey });
+  } catch (error) {
+    console.error("Get direct upload URL error:", error);
+    res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+};
+
+// Complete Direct Upload
+export const completeDirectUpload = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { objectKey, title, description, size, mimeType, originalName } = req.body;
+
+    console.log(`[PROCESS] DIRECT_UPLOAD_COMPLETED for course ${courseId}`);
+
+    const videoCount = await Video.countDocuments({ courseId });
+    const order = videoCount + 1;
+    const now = new Date();
+    // Keep 7 days expiration for direct uploads before they are converted to HLS
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const video = new Video({
+      courseId,
+      title: title || "Untitled Video",
+      description: description || "",
+      storageProvider: "r2",
+      objectKey,
+      originalName,
+      mimeType,
+      size,
+      expiresAt,
+      uploadedAt: now,
+      order,
+      processingStatus: "processing",
+    });
+
+    await video.save();
+    console.log(`[PROCESS] QUEUING_VIDEO ${video._id}`);
+    
+    // Fire and forget
+    queueVideoForProcessing(video._id.toString(), courseId).catch(err => {
+      console.error(`Failed to process video ${video._id}:`, err);
+    });
+
+    res.status(200).json({ message: "Upload completed and queued for processing", video });
+  } catch (error) {
+    console.error("Complete direct upload error:", error);
+    res.status(500).json({ error: "Failed to finalize upload" });
   }
 };
 

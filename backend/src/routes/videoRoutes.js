@@ -19,6 +19,11 @@ router.post("/courses/:courseId/videos/multipart-upload/initiate", verifyAdmin, 
 router.post("/courses/:courseId/videos/multipart-upload/complete", verifyAdmin, completeMultipartUpload);
 router.post("/courses/:courseId/videos/multipart-upload/abort", verifyAdmin, abortMultipartUpload);
 
+// R2 Direct Upload Routes (Admin)
+import { getDirectUploadUrl, completeDirectUpload } from "../controllers/videoController.js";
+router.post("/courses/:courseId/videos/direct-upload/url", verifyAdmin, getDirectUploadUrl);
+router.post("/courses/:courseId/videos/direct-upload/complete", verifyAdmin, completeDirectUpload);
+
 // Secure Playback Route (Admin & Student)
 router.get("/courses/:courseId/videos/:videoId/playback-url", verifyAuth, getPlaybackUrl);
 
