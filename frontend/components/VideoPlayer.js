@@ -31,6 +31,8 @@ export default function VideoPlayer({ src, poster, isHls }) {
 
     const options = {
       autoplay: false,
+      muted: true, // Required for iOS autoplay/inline rules
+      playsinline: true, // Native videojs option for inline playback
       controls: true,
       responsive: true,
       fluid: false,
@@ -80,6 +82,8 @@ export default function VideoPlayer({ src, poster, isHls }) {
     if (!playerRef.current) {
       const videoElement = document.createElement("video-js");
       videoElement.classList.add("vjs-big-play-centered", "vjs-default-skin");
+      videoElement.setAttribute("playsinline", "true");
+      videoElement.setAttribute("webkit-playsinline", "true");
       containerRef.current.appendChild(videoElement);
 
       const player = videojs(videoElement, options, function onPlayerReady() {
@@ -92,6 +96,9 @@ export default function VideoPlayer({ src, poster, isHls }) {
           console.error("[VideoPlayer] Playback Error:", err);
           if (err && err.code) {
             console.error("[VideoPlayer] Error Code:", err.code, "Message:", err.message);
+          }
+          if (err && err.networkDetails) {
+            console.error("[VideoPlayer] Network Details:", err.networkDetails);
           }
           console.error("[VideoPlayer] Failing Source URL:", player.src());
         });

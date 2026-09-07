@@ -1,7 +1,9 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lms-backend-9y8d.onrender.com/api';
 
 export const fetchApi = async (endpoint, options = {}) => {
-  const url = `${API_URL}${endpoint}`;
+  const cleanBase = API_URL.replace(/\/$/, "");
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const url = `${cleanBase}${cleanEndpoint}`;
   
   const finalOptions = { ...options };
   
@@ -23,7 +25,28 @@ export const fetchApi = async (endpoint, options = {}) => {
     }
   }
 
-  const response = await fetch(url, finalOptions);
+  // Timeout logic (120000ms = 2 minutes default for large uploads)
+  const timeoutMs = finalOptions.timeout || 120000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  finalOptions.signal = controller.signal;
+
+  let response;
+  try {
+    response = await fetch(url, finalOptions);
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error(`[API] Request to ${url} timed out after ${timeoutMs}ms`);
+      // Return a simulated response so callers don't crash
+      return new Response(JSON.stringify({ error: "Request timed out" }), {
+        status: 408,
+        statusText: "Request Timeout"
+      });
+    }
+    throw error;
+  }
 
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
