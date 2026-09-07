@@ -460,18 +460,29 @@ export const getHlsVariantPlaylist = async (req, res) => {
     let playlistContent = await response.Body.transformToString();
 
     const lines = playlistContent.split('\n');
-    const r2PublicDomain = process.env.R2_PUBLIC_DOMAIN || `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com`;
+    const r2PublicDomain = process.env.R2_PUBLIC_DOMAIN;
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (line && !line.startsWith('#')) {
-        // Construct the direct CDN/Public URL instead of signing
-        lines[i] = `${r2PublicDomain}/videos/${courseId}/${videoId}/hls/${line}`;
+    const transformedLines = await Promise.all(lines.map(async (line) => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        if (r2PublicDomain) {
+          // Use public domain if available
+          return `${r2PublicDomain}/videos/${courseId}/${videoId}/hls/${trimmed}`;
+        } else {
+          // Generate an authenticated S3 presigned URL for the segment
+          const segmentKey = `videos/${courseId}/${videoId}/hls/${trimmed}`;
+          const cmd = new GetObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: segmentKey,
+          });
+          return await getSignedUrl(r2Client, cmd, { expiresIn: 3600 });
+        }
       }
-    }
+      return line;
+    }));
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.status(200).send(lines.join('\n'));
+    res.status(200).send(transformedLines.join('\n'));
   } catch (error) {
     console.error("Get HLS variant error:", error);
     res.status(500).json({ error: "Failed to generate variant playlist" });
