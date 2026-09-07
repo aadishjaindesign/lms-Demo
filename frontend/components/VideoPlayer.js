@@ -7,8 +7,6 @@ export default function VideoPlayer({ src, poster, isHls }) {
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const [errorState, setErrorState] = useState(null);
-  const [showCenterIcon, setShowCenterIcon] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -129,17 +127,6 @@ export default function VideoPlayer({ src, poster, isHls }) {
             console.error("[VideoPlayer] Network Details:", err.networkDetails);
           }
           console.error("[VideoPlayer] Failing Source URL:", player.src());
-        });
-
-        // YouTube-style center icon toggle logic
-        player.on('play', () => { 
-          setIsPlaying(true); 
-          setShowCenterIcon(true); 
-          setTimeout(() => setShowCenterIcon(false), 500); 
-        });
-        player.on('pause', () => { 
-          setIsPlaying(false); 
-          setShowCenterIcon(true); 
         });
 
         player.el().setAttribute('tabIndex', '-1');
@@ -467,19 +454,6 @@ export default function VideoPlayer({ src, poster, isHls }) {
 
   return (
     <div data-vjs-player className="w-full h-full relative" style={{ borderRadius: "inherit" }}>
-      {/* YouTube Style Overlay Icon */}
-      <div 
-        className={`absolute inset-0 flex items-center justify-center pointer-events-none z-10 transition-opacity duration-300 ${showCenterIcon ? 'opacity-100' : 'opacity-0'}`}
-      >
-        <div className="bg-black/60 rounded-full w-20 h-20 flex items-center justify-center text-white backdrop-blur-sm">
-          {isPlaying ? (
-            <svg className="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-          ) : (
-            <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-          )}
-        </div>
-      </div>
-      
       <div ref={containerRef} className="w-full h-full" style={{ borderRadius: "inherit" }}></div>
       <style dangerouslySetInnerHTML={{__html: `
         .lms-video-container {
@@ -549,11 +523,6 @@ export default function VideoPlayer({ src, poster, isHls }) {
         }
         .video-js:hover .vjs-big-play-button {
           background-color: rgba(199, 30, 34, 1);
-        }
-        
-        /* Hide the native videojs big play button since we use our custom YouTube-style overlay */
-        .video-js .vjs-big-play-button {
-          display: none !important;
         }
 
         /* 2-Row Control Bar Layout (YouTube Style) - Global */

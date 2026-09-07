@@ -351,7 +351,8 @@ export const getHlsMasterPlaylist = async (req, res) => {
     
     const apiBase = process.env.API_BASE_URL || 'https://lms-backend-9y8d.onrender.com/api';
     const hlsBase = `${apiBase}/courses/${courseId}/videos/${videoId}/hls`;
-    masterPlaylistContent = masterPlaylistContent.replace(/([a-zA-Z0-9_-]+\.m3u8)/g, `${hlsBase}/$1`);
+    const tokenQuery = req.query.token ? `?token=${req.query.token}` : '';
+    masterPlaylistContent = masterPlaylistContent.replace(/([a-zA-Z0-9_-]+\.m3u8)/g, `${hlsBase}/$1${tokenQuery}`);
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.status(200).send(masterPlaylistContent);
