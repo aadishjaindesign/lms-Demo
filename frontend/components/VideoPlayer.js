@@ -87,6 +87,15 @@ export default function VideoPlayer({ src, poster, isHls }) {
           player.httpSourceSelector();
         }
 
+        player.on('error', function() {
+          const err = player.error();
+          console.error("[VideoPlayer] Playback Error:", err);
+          if (err && err.code) {
+            console.error("[VideoPlayer] Error Code:", err.code, "Message:", err.message);
+          }
+          console.error("[VideoPlayer] Failing Source URL:", player.src());
+        });
+
         player.el().setAttribute('tabIndex', '-1');
         player.el().focus();
 

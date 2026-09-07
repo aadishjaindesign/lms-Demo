@@ -349,8 +349,9 @@ export const getHlsMasterPlaylist = async (req, res) => {
     const response = await r2Client.send(command);
     let masterPlaylistContent = await response.Body.transformToString();
     
-    const apiBase = `/api/courses/${courseId}/videos/${videoId}/hls`;
-    masterPlaylistContent = masterPlaylistContent.replace(/([a-zA-Z0-9_-]+\.m3u8)/g, `${apiBase}/$1`);
+    const apiBase = process.env.API_BASE_URL || 'https://lms-backend-9y8d.onrender.com/api';
+    const hlsBase = `${apiBase}/courses/${courseId}/videos/${videoId}/hls`;
+    masterPlaylistContent = masterPlaylistContent.replace(/([a-zA-Z0-9_-]+\.m3u8)/g, `${hlsBase}/$1`);
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.status(200).send(masterPlaylistContent);
