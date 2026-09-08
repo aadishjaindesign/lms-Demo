@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "worker": "node src/workers/videoWorker.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +18,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1124.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^6.3.4",
     "cloudinary": "^1.41.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -24,6 +26,7 @@
     "express": "^5.2.1",
     "fastq": "^1.20.3",
     "fluent-ffmpeg": "^2.1.3",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.4",
     "multer": "^2.3.0",

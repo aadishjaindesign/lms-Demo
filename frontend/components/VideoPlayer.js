@@ -147,6 +147,27 @@ export default function VideoPlayer({ src, poster, isHls }) {
           }
         });
 
+        // --- Duration Preservation Fix ---
+        let maxDuration = 0;
+        player.on('durationchange', () => {
+          const currentDuration = player.duration();
+          if (currentDuration > maxDuration) {
+            maxDuration = currentDuration;
+          }
+        });
+
+        const originalDuration = player.duration.bind(player);
+        player.duration = function(seconds) {
+          if (seconds !== undefined) {
+            return originalDuration(seconds);
+          }
+          const current = originalDuration();
+          if (maxDuration > 0 && current < maxDuration) {
+            return maxDuration;
+          }
+          return current;
+        };
+
         const ControlBar = videojs.getComponent("ControlBar");
         const Button = videojs.getComponent("Button");
 

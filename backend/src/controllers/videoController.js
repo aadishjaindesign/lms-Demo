@@ -6,7 +6,7 @@ import { CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploa
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { hasCourseAccess } from "../services/courseAccessService.js";
-import { queueVideoForProcessing } from "../services/videoProcessingService.js";
+import { videoQueue } from "../config/queue.js";
 
 // Generate upload signature for direct Cloudinary chunked upload
 export const generateSignature = async (req, res) => {
@@ -256,7 +256,7 @@ export const completeMultipartUpload = async (req, res) => {
     console.log(`[PROCESS] VIDEO_DB_CREATED videoId=${video._id}`);
 
     // Queue for HLS processing
-    queueVideoForProcessing(video._id);
+    await videoQueue.add('process-video', { videoId: video._id.toString() });
 
     res.status(200).json(video);
   } catch (error) {
@@ -347,7 +347,7 @@ export const completeDirectUpload = async (req, res) => {
     await video.save();
     console.log(`[PROCESS] QUEUING_VIDEO ${video._id}`);
     // Fire and forget
-    queueVideoForProcessing(video._id.toString());
+    await videoQueue.add('process-video', { videoId: video._id.toString() });
 
     res.status(200).json({ message: "Upload completed and queued for processing", video });
   } catch (error) {
@@ -459,24 +459,18 @@ export const getHlsVariantPlaylist = async (req, res) => {
     const lines = playlistContent.split('\n');
     const r2PublicDomain = process.env.R2_PUBLIC_DOMAIN;
     
-    const transformedLines = await Promise.all(lines.map(async (line) => {
+    if (!r2PublicDomain) {
+      console.warn("R2_PUBLIC_DOMAIN is not set in environment variables. Segment playback might fail if not fully configured.");
+    }
+    
+    const transformedLines = lines.map((line) => {
       const trimmed = line.trim();
       if (trimmed && !trimmed.startsWith('#')) {
-        if (r2PublicDomain) {
-          // Use public domain if available
-          return `${r2PublicDomain}/videos/${courseId}/${videoId}/hls/${trimmed}`;
-        } else {
-          // Generate an authenticated S3 presigned URL for the segment
-          const segmentKey = `videos/${courseId}/${videoId}/hls/${trimmed}`;
-          const cmd = new GetObjectCommand({
-            Bucket: process.env.R2_BUCKET_NAME,
-            Key: segmentKey,
-          });
-          return await getSignedUrl(r2Client, cmd, { expiresIn: 3600 });
-        }
+        // Use public domain for fast segment loading instead of generating individual presigned URLs
+        return `${r2PublicDomain}/videos/${courseId}/${videoId}/hls/${trimmed}`;
       }
       return line;
-    }));
+    });
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.status(200).send(transformedLines.join('\n'));
