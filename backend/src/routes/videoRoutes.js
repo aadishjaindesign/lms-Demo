@@ -1,5 +1,5 @@
 import express from "express";
-import { uploadVideo, getCourseVideos, deleteVideo, updateVideo, generateSignature, initiateMultipartUpload, completeMultipartUpload, abortMultipartUpload, getPlaybackUrl, getHlsMasterPlaylist, getHlsVariantPlaylist } from "../controllers/videoController.js";
+import { uploadVideo, getCourseVideos, deleteVideo, updateVideo, generateSignature, initiateMultipartUpload, completeMultipartUpload, abortMultipartUpload, getPlaybackUrl, getHlsMasterPlaylist, getHlsVariantPlaylist, generatePresignedUrl, uploadComplete } from "../controllers/videoController.js";
 import { verifyAdmin, verifyAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -23,6 +23,10 @@ router.post("/courses/:courseId/videos/multipart-upload/abort", verifyAdmin, abo
 import { getDirectUploadUrl, completeDirectUpload } from "../controllers/videoController.js";
 router.post("/courses/:courseId/videos/direct-upload/url", verifyAdmin, getDirectUploadUrl);
 router.post("/courses/:courseId/videos/direct-upload/complete", verifyAdmin, completeDirectUpload);
+
+// New Optimized Direct Upload Flow (Admin)
+router.post("/videos/presigned-url", verifyAdmin, generatePresignedUrl);
+router.post("/videos/upload-complete", verifyAdmin, uploadComplete);
 
 // Secure Playback Route (Admin & Student)
 router.get("/courses/:courseId/videos/:videoId/playback-url", verifyAuth, getPlaybackUrl);

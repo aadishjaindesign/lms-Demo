@@ -58,7 +58,7 @@ const VideoSchema = new mongoose.Schema(
     },
     processingStatus: {
       type: String,
-      enum: ["none", "processing", "ready", "failed"],
+      enum: ["none", "pending", "processing", "ready", "failed"],
       default: "none",
     },
     hlsReady: {

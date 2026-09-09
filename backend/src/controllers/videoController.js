@@ -479,3 +479,80 @@ export const getHlsVariantPlaylist = async (req, res) => {
     res.status(500).json({ error: "Failed to generate variant playlist" });
   }
 };
+
+// Generate Presigned URL for Direct Upload
+export const generatePresignedUrl = async (req, res) => {
+  try {
+    const { courseId, fileName, fileType, title, size } = req.body;
+    
+    if (!fileName || !courseId) {
+      return res.status(400).json({ error: "fileName and courseId are required" });
+    }
+
+    const sanitizedFilename = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const uuid = crypto.randomUUID();
+    const objectKey = `videos/${courseId}/${uuid}-${sanitizedFilename}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: objectKey,
+      ContentType: fileType || "video/mp4",
+    });
+
+    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+
+    const videoCount = await Video.countDocuments({ courseId });
+    const order = videoCount + 1;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const video = new Video({
+      courseId,
+      title: title || fileName.split('.')[0] || "Untitled Video",
+      storageProvider: "r2",
+      objectKey,
+      originalName: fileName,
+      mimeType: fileType || "video/mp4",
+      size: size || 0,
+      expiresAt,
+      uploadedAt: now,
+      order,
+      processingStatus: "pending",
+    });
+
+    await video.save();
+
+    res.status(200).json({ uploadUrl, objectKey, videoId: video._id });
+  } catch (error) {
+    console.error("Generate presigned URL error:", error);
+    res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+};
+
+// Upload Complete trigger
+export const uploadComplete = async (req, res) => {
+  try {
+    const { videoId, objectKey } = req.body;
+
+    if (!videoId || !objectKey) {
+      return res.status(400).json({ error: "videoId and objectKey are required" });
+    }
+
+    const video = await Video.findById(videoId);
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    video.processingStatus = "processing";
+    await video.save();
+
+    console.log(`[PROCESS] QUEUING_VIDEO ${video._id}`);
+    await videoQueue.add('process-video', { videoId: video._id.toString() });
+
+    // Instantly return to prevent timeouts
+    res.status(200).json({ message: "Upload completed and queued for processing", video });
+  } catch (error) {
+    console.error("Complete upload error:", error);
+    res.status(500).json({ error: error.message || "Failed to finalize upload" });
+  }
+};

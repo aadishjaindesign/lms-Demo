@@ -88,7 +88,7 @@ const processVideoJob = async (job) => {
     await new Promise((resolve, reject) => {
       ffmpeg(inputFilePath, { timeout: 432000 })
         .addOptions([
-          '-threads 4',
+          '-threads 2',
           '-profile:v main',
           '-preset ultrafast',
           '-tune fastdecode',
@@ -101,8 +101,6 @@ const processVideoJob = async (job) => {
         ])
         .output(path.join(tempDir, '360p.m3u8'))
         .outputOptions(['-vf scale=-2:360', '-b:v 800k', '-maxrate 856k', '-bufsize 1200k', '-b:a 96k', '-hls_segment_filename', path.join(tempDir, '360p_%03d.ts')])
-        .output(path.join(tempDir, '480p.m3u8'))
-        .outputOptions(['-vf scale=-2:480', '-b:v 1400k', '-maxrate 1498k', '-bufsize 2100k', '-b:a 128k', '-hls_segment_filename', path.join(tempDir, '480p_%03d.ts')])
         .output(path.join(tempDir, '720p.m3u8'))
         .outputOptions(['-vf scale=-2:720', '-b:v 2800k', '-maxrate 2996k', '-bufsize 4200k', '-b:a 128k', '-hls_segment_filename', path.join(tempDir, '720p_%03d.ts')])
         .on('error', (err) => {
@@ -116,7 +114,7 @@ const processVideoJob = async (job) => {
         .run();
     });
 
-    const masterPlaylistContent = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\n360p.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=854x480\n480p.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8`;
+    const masterPlaylistContent = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\n360p.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8`;
     fs.writeFileSync(path.join(tempDir, 'master.m3u8'), masterPlaylistContent);
     console.log('[WORKER] HLS_GENERATION_COMPLETED');
 

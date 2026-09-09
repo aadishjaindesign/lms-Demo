@@ -373,15 +373,30 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
     const startTime = Date.now();
 
     try {
-      const initRes = await fetchApi(`/courses/${courseId}/videos/direct-upload/url`, {
+      const baseApiHost = process.env.NEXT_PUBLIC_API_URL 
+        ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, "") 
+        : "https://lms.jainscomputer.com";
+        
+      const token = localStorage.getItem('token');
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const initRes = await fetch(`${baseApiHost}/api/videos/presigned-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type || "video/mp4" }),
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          courseId,
+          fileName: file.name,
+          fileType: file.type || "video/mp4",
+          title: title.trim(),
+          size: file.size
+        }),
       });
       if (!initRes.ok) throw new Error("Failed to get upload URL");
       
-      const { uploadUrl, objectKey } = await initRes.json();
-      uploadInfo.current = { objectKey };
+      const { uploadUrl, objectKey, videoId } = await initRes.json();
+      uploadInfo.current = { objectKey, videoId };
       
       if (isCancelled.current) throw new Error("Upload cancelled");
 
@@ -448,17 +463,12 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
       setUploadProgress(100);
       setTimeRemaining(0);
       setStatus("PROCESSING");
-      
-      const saveRes = await fetchApi(`/courses/${courseId}/videos/direct-upload/complete`, {
+
+      const saveRes = await fetch(`${baseApiHost}/api/videos/upload-complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          objectKey,
-          title: title.trim() || file.name.split('.')[0] || "Untitled",
-          size: file.size,
-          mimeType: file.type || "video/mp4",
-          originalName: file.name
-        }),
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ videoId, objectKey }),
       });
 
       if (!saveRes.ok) {

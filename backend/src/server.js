@@ -13,6 +13,9 @@ import adminRoutes from './routes/adminRoutes.js';
 import { startVideoCleanupScheduler } from './services/videoCleanupService.js';
 import { startKeepAlive } from './services/keepAliveService.js';
 
+// Auto-start background workers
+import './workers/videoWorker.js';
+
 dotenv.config();
 
 const app = express();
