@@ -375,7 +375,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
     try {
       const baseApiHost = process.env.NEXT_PUBLIC_API_URL 
         ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, "") 
-        : "https://lms.jainscomputer.com";
+        : "https://lmsbackend.jainscomputer.com";
         
       const token = localStorage.getItem('token');
       const headers = { "Content-Type": "application/json" };

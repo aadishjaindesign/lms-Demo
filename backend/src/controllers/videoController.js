@@ -418,7 +418,7 @@ export const getHlsMasterPlaylist = async (req, res) => {
     const response = await r2Client.send(command);
     let masterPlaylistContent = await response.Body.transformToString();
     
-    const apiBase = process.env.API_BASE_URL || 'https://lms.jainscomputer.com/api';
+    const apiBase = process.env.API_BASE_URL || 'https://lmsbackend.jainscomputer.com/api';
     const hlsBase = `${apiBase}/courses/${courseId}/videos/${videoId}/hls`;
     const tokenQuery = req.query.token ? `?token=${req.query.token}` : '';
     masterPlaylistContent = masterPlaylistContent.replace(/([a-zA-Z0-9_-]+\.m3u8)/g, `${hlsBase}/$1${tokenQuery}`);

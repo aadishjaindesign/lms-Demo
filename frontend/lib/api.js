@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lms.jainscomputer.com/api';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lmsbackend.jainscomputer.com/api';
 
 export const fetchApi = async (endpoint, options = {}) => {
   const cleanBase = API_URL.replace(/\/$/, "");

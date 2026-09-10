@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { connection } from '../config/queue.js';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 import fs from 'fs';
 import { pipeline } from 'stream/promises';
 import path from 'path';
@@ -25,8 +26,11 @@ if (mongoose.connection.readyState === 0) {
     .catch(err => console.error('[WORKER ERROR] MongoDB connection failed:', err));
 }
 
-// Set ffmpeg path
+// Set ffmpeg and ffprobe paths
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
+console.log('[WORKER] ffmpeg path:', ffmpegInstaller.path);
+console.log('[WORKER] ffprobe path:', ffprobeInstaller.path);
 const BUCKET_NAME = process.env.R2_BUCKET_NAME;
 
 const processVideoJob = async (job) => {
@@ -82,48 +86,142 @@ const processVideoJob = async (job) => {
     }
     console.log(`[WORKER] SOURCE_DOWNLOAD_COMPLETED`);
 
-    // 3. Setup HLS variants based on local file
+    // 3. Get video metadata first to detect actual resolution
     console.log(`[WORKER] FFMPEG_STARTED`);
-    
-    await new Promise((resolve, reject) => {
-      ffmpeg(inputFilePath, { timeout: 432000 })
+
+    // Detect source resolution (fail-safe — defaults to 720p if ffprobe errors)
+    let sourceInfo = { width: 1280, height: 720 };
+    try {
+      sourceInfo = await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(inputFilePath, (err, metadata) => {
+          if (err) return reject(err);
+          const vStream = metadata.streams.find(s => s.codec_type === 'video');
+          resolve({ width: vStream?.width || 1280, height: vStream?.height || 720 });
+        });
+      });
+      console.log(`[WORKER] Source resolution: ${sourceInfo.width}x${sourceInfo.height}`);
+    } catch (probeErr) {
+      console.warn(`[WORKER] ffprobe failed, defaulting to 720p: ${probeErr.message}`);
+    }
+
+
+    // Only include 720p if source is actually >= 720p
+    const include720p = sourceInfo.height >= 720;
+
+    // Detect CPU thread count for maximum throughput
+    const cpuCount = os.cpus().length;
+    const threads = Math.max(cpuCount, 1).toString();
+    console.log(`[WORKER] Using ${threads} CPU threads`);
+
+    const hlsPromise = new Promise((resolve, reject) => {
+      const cmd = ffmpeg(inputFilePath, { timeout: 432000 })
         .addOptions([
-          '-threads 2',
-          '-profile:v main',
-          '-preset ultrafast',
-          '-tune fastdecode',
+          `-threads ${threads}`,
+          '-profile:v baseline',
+          '-preset superfast',
+          '-tune zerolatency',
           '-g 48',
           '-keyint_min 48',
           '-sc_threshold 0',
-          '-hls_time 6',
-          '-hls_list_size 0',
-          '-hls_playlist_type vod',
+          '-async 1',           // Fix audio sync drift (critical for browser-compressed WebM)
+          '-vsync 1',           // Fix variable frame rate (fixes truncated video issue)
         ])
         .output(path.join(tempDir, '360p.m3u8'))
-        .outputOptions(['-vf scale=-2:360', '-b:v 800k', '-maxrate 856k', '-bufsize 1200k', '-b:a 96k', '-hls_segment_filename', path.join(tempDir, '360p_%03d.ts')])
-        .output(path.join(tempDir, '720p.m3u8'))
-        .outputOptions(['-vf scale=-2:720', '-b:v 2800k', '-maxrate 2996k', '-bufsize 4200k', '-b:a 128k', '-hls_segment_filename', path.join(tempDir, '720p_%03d.ts')])
+        .outputOptions([
+          `-threads ${threads}`,
+          "-vf scale=-2:'if(gt(ih,360),360,ih)'",
+          '-b:v 600k', '-maxrate 700k', '-bufsize 900k',
+          '-c:a aac',           // Explicit AAC audio codec (fixes no audio issue)
+          '-b:a 96k',           // Raised from 64k — ensures audio is clear
+          '-ar 44100',          // Standard audio sample rate
+          '-hls_time 4',
+          '-hls_list_size 0',
+          '-hls_playlist_type vod',
+          '-hls_segment_filename', path.join(tempDir, '360p_%03d.ts'),
+        ]);
+
+      if (include720p) {
+        cmd
+          .output(path.join(tempDir, '720p.m3u8'))
+          .outputOptions([
+            `-threads ${threads}`,
+            "-vf scale=-2:'if(gt(ih,720),720,ih)'",
+            '-b:v 2000k', '-maxrate 2200k', '-bufsize 3000k',
+            '-c:a aac',           // Explicit AAC audio codec
+            '-b:a 128k',
+            '-ar 44100',
+            '-hls_time 4',
+            '-hls_list_size 0',
+            '-hls_playlist_type vod',
+            '-hls_segment_filename', path.join(tempDir, '720p_%03d.ts'),
+          ]);
+      }
+
+      cmd
+        .on('progress', (progress) => {
+          if (progress.percent) {
+            console.log(`[WORKER] FFmpeg HLS progress: ${Math.round(progress.percent)}%`);
+          }
+        })
         .on('error', (err) => {
-          console.error('[WORKER][ERROR] FFmpeg error:', err);
+          console.error('[WORKER][ERROR] FFmpeg HLS error:', err);
           reject(err);
         })
         .on('end', () => {
-          console.log('[WORKER] FFMPEG_COMPLETED');
+          console.log('[WORKER] FFMPEG_HLS_COMPLETED');
           resolve();
         })
         .run();
     });
 
-    const masterPlaylistContent = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\n360p.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8`;
+    const compressPromise = new Promise((resolve, reject) => {
+      ffmpeg(inputFilePath, { timeout: 432000 })
+        .outputOptions([
+          `-threads ${threads}`,
+          '-c:v libx264',
+          '-preset veryfast',
+          '-crf 28',
+          '-maxrate 1500k',     // Enforce maximum bitrate to prevent huge sizes
+          '-bufsize 3000k',     // Buffer size for maxrate
+          "-vf scale=-2:'if(gt(ih,720),720,ih)'", // Scale to 720p (only if larger)
+          '-c:a aac',
+          '-b:a 128k',
+          '-movflags +faststart'
+        ])
+        .output(path.join(tempDir, 'compressed.mp4'))
+        .on('progress', (progress) => {
+          if (progress.percent) {
+            console.log(`[WORKER] FFmpeg Compress progress: ${Math.round(progress.percent)}%`);
+          }
+        })
+        .on('error', (err) => {
+          console.error('[WORKER][ERROR] FFmpeg compression error:', err);
+          reject(err);
+        })
+        .on('end', () => {
+          console.log('[WORKER] FFMPEG_COMPRESSION_COMPLETED');
+          resolve();
+        })
+        .run();
+    });
+
+    await Promise.all([hlsPromise, compressPromise]);
+
+
+    const bandwidth720 = '2000000';
+    const masterPlaylistContent = include720p
+      ? `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=600000,RESOLUTION=640x360\n360p.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth720},RESOLUTION=1280x720\n720p.m3u8`
+      : `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=600000,RESOLUTION=640x360\n360p.m3u8`;
     fs.writeFileSync(path.join(tempDir, 'master.m3u8'), masterPlaylistContent);
-    console.log('[WORKER] HLS_GENERATION_COMPLETED');
+    console.log(`[WORKER] HLS_GENERATION_COMPLETED (720p: ${include720p})`);
+
 
     // 4. Upload all HLS files to R2
     console.log(`[WORKER] HLS_UPLOAD_STARTED`);
     const files = fs.readdirSync(tempDir);
     const hlsBaseKey = `videos/${video.courseId}/${video._id}/hls`;
     
-    const hlsFiles = files.filter(file => file !== 'input.mp4');
+    const hlsFiles = files.filter(file => file !== 'input.mp4' && file !== 'compressed.mp4');
     const CONCURRENCY_LIMIT = 15;
     
     for (let i = 0; i < hlsFiles.length; i += CONCURRENCY_LIMIT) {
@@ -147,6 +245,24 @@ const processVideoJob = async (job) => {
     }
     console.log(`[WORKER] HLS_UPLOAD_COMPLETED`);
 
+    // 4b. Upload compressed MP4 to replace original video
+    console.log(`[WORKER] COMPRESSED_MP4_UPLOAD_STARTED`);
+    const compressedMp4Path = path.join(tempDir, 'compressed.mp4');
+    if (fs.existsSync(compressedMp4Path)) {
+      const uploadCommand = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: video.objectKey,
+        Body: fs.createReadStream(compressedMp4Path), // Using stream to save RAM
+        ContentType: 'video/mp4',
+      });
+      await r2Client.send(uploadCommand);
+      console.log(`[WORKER] COMPRESSED_MP4_UPLOAD_COMPLETED`);
+      
+      // Update the video size in DB (getting stat of compressed file)
+      const stats = fs.statSync(compressedMp4Path);
+      video.size = stats.size;
+    }
+
     // 5. Cleanup local temp files
     fs.rmSync(tempDir, { recursive: true, force: true });
 
@@ -157,7 +273,8 @@ const processVideoJob = async (job) => {
       {
         hlsReady: true,
         processingStatus: 'ready',
-        hlsMasterPlaylist: `${hlsBaseKey}/master.m3u8`
+        hlsMasterPlaylist: `${hlsBaseKey}/master.m3u8`,
+        size: video.size // updated compressed size
       },
       { new: true, upsert: false }
     );

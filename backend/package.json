@@ -17,6 +17,7 @@
     "@aws-sdk/client-s3": "^3.1124.0",
     "@aws-sdk/s3-request-presigner": "^3.1124.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.3.4",
     "cloudinary": "^1.41.3",
