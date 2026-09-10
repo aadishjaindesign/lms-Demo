@@ -65,7 +65,7 @@ export default function VideoPlayer({ src, poster, isHls }) {
       fill: true,
       poster: poster || "",
       preload: "auto",
-      playbackRates: [0.5, 1, 1.25, 1.5, 2],
+      playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
       controlBar: {
         children: [
           "playToggle",
