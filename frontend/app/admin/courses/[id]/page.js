@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchApi, API_URL } from "@/lib/api";
+import { compressVideo } from "@/lib/videoCompressor";
 import dynamic from "next/dynamic";
 const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), { ssr: false });
 
@@ -302,11 +303,13 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
   const [status, setStatus] = useState("SELECTED");
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [compressionProgress, setCompressionProgress] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [uploadSpeed, setUploadSpeed] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
+  const abortControllerRef = useRef(null);
   const activeXhrs = useRef(new Set());
   const isCancelled = useRef(false);
   const uploadInfo = useRef(null);
@@ -323,7 +326,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
     }
 
     const handleBeforeUnload = (e) => {
-      if (statusRef.current === "UPLOADING" || statusRef.current === "PROCESSING") {
+      if (statusRef.current === "COMPRESSING" || statusRef.current === "UPLOADING" || statusRef.current === "PROCESSING") {
         e.preventDefault();
         e.returnValue = "Video upload is still in progress. Are you sure you want to leave?";
       }
@@ -332,8 +335,11 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (statusRef.current === "UPLOADING" || statusRef.current === "PROCESSING") {
+      if (statusRef.current === "COMPRESSING" || statusRef.current === "UPLOADING" || statusRef.current === "PROCESSING") {
         isCancelled.current = true;
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
         activeXhrs.current.forEach(xhr => xhr.abort());
         localStorage.removeItem(`r2_upload_${courseId}`);
       }
@@ -343,13 +349,16 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
   const handleCancel = () => {
     isCancelled.current = true;
     setStatus("CANCELLED");
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     activeXhrs.current.forEach(xhr => xhr.abort());
     activeXhrs.current.clear();
     localStorage.removeItem(`r2_upload_${courseId}`);
   };
 
   const attemptClose = () => {
-    if (status === "UPLOADING" || status === "PROCESSING") {
+    if (status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING") {
       setShowConfirmClose(true);
     } else {
       onClose();
@@ -368,8 +377,9 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
       return;
     }
 
-    setStatus("UPLOADING");
+    setStatus("COMPRESSING");
     setError("");
+    setCompressionProgress(0);
     setUploadProgress(0);
     setUploadedBytes(0);
     setUploadSpeed(0);
@@ -378,9 +388,29 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
     uploadInfo.current = null;
     activeXhrs.current.clear();
 
+    abortControllerRef.current = new AbortController();
+
     const startTime = Date.now();
 
     try {
+      let fileToUpload = file;
+
+      try {
+        fileToUpload = await compressVideo(file, (progress) => {
+          setCompressionProgress(progress);
+        }, abortControllerRef.current.signal);
+      } catch (err) {
+        if (err.message === "Compression cancelled") {
+          throw new Error("Upload cancelled");
+        }
+        console.error("Compression failed, falling back to original file", err);
+        fileToUpload = file;
+      }
+
+      if (isCancelled.current) throw new Error("Upload cancelled");
+
+      setStatus("UPLOADING");
+
       const baseApiHost = process.env.NEXT_PUBLIC_API_URL 
         ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, "") 
         : "https://lmsbackend.jainscomputer.com";
@@ -395,10 +425,10 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
         credentials: "include",
         body: JSON.stringify({
           courseId,
-          fileName: file.name,
-          fileType: file.type || "video/mp4",
+          fileName: fileToUpload.name,
+          fileType: fileToUpload.type || "video/mp4",
           title: title.trim(),
-          size: file.size
+          size: fileToUpload.size
         }),
       });
       if (!initRes.ok) throw new Error("Failed to get upload URL");
@@ -415,7 +445,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
         const xhr = new XMLHttpRequest();
         activeXhrs.current.add(xhr);
         xhr.open("PUT", uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+        xhr.setRequestHeader("Content-Type", fileToUpload.type || "video/mp4");
         
         xhr.upload.onprogress = (event) => {
           if (isCancelled.current) {
@@ -462,12 +492,12 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
           reject(new Error("Upload cancelled"));
         };
         
-        xhr.send(file);
+        xhr.send(fileToUpload);
       });
 
       if (isCancelled.current) throw new Error("Upload cancelled");
 
-      setUploadedBytes(file.size);
+      setUploadedBytes(fileToUpload.size);
       setUploadProgress(100);
       setTimeRemaining(0);
       setStatus("PROCESSING");
@@ -554,7 +584,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
             <input 
               type="text" required
               value={title} onChange={e => setTitle(e.target.value)}
-              disabled={status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED"}
+              disabled={status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED"}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-100 focus:border-red-300 focus:outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               placeholder="e.g., Introduction to Module 1"
             />
@@ -570,14 +600,14 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
                     setStatus("SELECTED");
                     setError("");
                 }}
-                disabled={status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED"}
+                disabled={status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED"}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               
-              {(status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED") && uploadProgress > 0 && (
+              {(status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED") && (status === "COMPRESSING" ? compressionProgress : uploadProgress) > 0 && (
                 <div 
                   className={`absolute bottom-0 left-0 h-1 transition-all duration-300 ${status === "FAILED" ? "bg-red-500" : status === "COMPLETED" ? "bg-green-500" : "bg-[#c71e22]"}`} 
-                  style={{ width: `${uploadProgress}%` }}
+                  style={{ width: `${status === "COMPRESSING" ? compressionProgress : uploadProgress}%` }}
                 ></div>
               )}
               
@@ -588,17 +618,18 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
               <div className="text-xs text-gray-400 mt-1">{file ? file.name : "MP4, WebM, MOV"}</div>
             </div>
             
-            {(status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED" || status === "FAILED" || status === "CANCELLED") && uploadProgress > 0 && (
+            {(status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED" || status === "FAILED" || status === "CANCELLED") && (status === "COMPRESSING" ? compressionProgress : uploadProgress) > 0 && (
               <div className="mt-3 flex flex-col gap-2 text-xs font-semibold text-gray-600">
                 <div className="flex items-center justify-between">
                   <span>
+                    {status === "COMPRESSING" && "Compressing video in browser..."}
                     {status === "UPLOADING" && "Uploading to R2..."}
                     {status === "PROCESSING" && "Saving metadata..."}
                     {status === "COMPLETED" && "Upload complete!"}
                     {status === "FAILED" && "Upload failed"}
                     {status === "CANCELLED" && "Upload cancelled"}
                   </span>
-                  <span className={status === "COMPLETED" ? "text-green-600" : (status === "FAILED" || status === "CANCELLED") ? "text-red-600" : "text-[#c71e22]"}>{uploadProgress}%</span>
+                  <span className={status === "COMPLETED" ? "text-green-600" : (status === "FAILED" || status === "CANCELLED") ? "text-red-600" : "text-[#c71e22]"}>{status === "COMPRESSING" ? compressionProgress : uploadProgress}%</span>
                 </div>
                 {status === "UPLOADING" && file && (
                    <div className="flex flex-col md:flex-row md:items-center justify-between text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-gray-100 gap-2 md:gap-0">
@@ -619,23 +650,23 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
             <button 
               type="button" 
               onClick={attemptClose} 
-              disabled={status === "PROCESSING"} 
+              disabled={status === "PROCESSING" || status === "COMPRESSING"} 
               className="px-5 py-2.5 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50 text-sm"
             >
-              {status === "UPLOADING" ? "Cancel Upload" : "Close"}
+              {status === "UPLOADING" || status === "COMPRESSING" ? "Cancel Upload" : "Close"}
             </button>
             <button 
               type="submit" 
-              disabled={status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED" || status === "CANCELLED" || !file || !title} 
+              disabled={status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING" || status === "COMPLETED" || status === "CANCELLED" || !file || !title} 
               className="px-5 py-2.5 bg-[#c71e22] text-white font-semibold rounded-xl hover:bg-[#a5191c] transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
             >
-              {(status === "UPLOADING" || status === "PROCESSING") ? (
+              {(status === "COMPRESSING" || status === "UPLOADING" || status === "PROCESSING") ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  {status === "UPLOADING" ? "Uploading..." : "Processing..."}
+                  {status === "COMPRESSING" ? "Compressing..." : status === "UPLOADING" ? "Uploading..." : "Processing..."}
                 </>
               ) : status === "COMPLETED" ? "Success!" : "Upload Video"}
             </button>
