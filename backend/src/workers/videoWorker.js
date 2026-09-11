@@ -42,6 +42,25 @@ const processVideoJob = async (job) => {
     throw new Error(`Video not found or invalid storage provider for ${videoId}`);
   }
 
+  let hlsPercent = 0;
+  let compressPercent = 0;
+  let lastReportedProgress = 0;
+  let lastUpdateTime = 0;
+
+  const updateProgress = async () => {
+    const avgProgress = Math.min(99, Math.round((hlsPercent + compressPercent) / 2));
+    const now = Date.now();
+    if (avgProgress >= lastReportedProgress + 3 || (now - lastUpdateTime > 5000 && avgProgress !== lastReportedProgress)) {
+      lastReportedProgress = avgProgress;
+      lastUpdateTime = now;
+      try {
+        await Video.findByIdAndUpdate(videoId, { processingProgress: avgProgress });
+      } catch (err) {
+        console.error(`[WORKER] Failed to update progress to DB:`, err.message);
+      }
+    }
+  };
+
   // 1. Prepare temporary directory
   const tempDir = path.join(os.tmpdir(), `hls_${videoId}`);
   if (!fs.existsSync(tempDir)) {
@@ -109,8 +128,7 @@ const processVideoJob = async (job) => {
     const include720p = sourceInfo.height >= 720;
 
     // Detect CPU thread count for maximum throughput
-    const cpuCount = os.cpus().length;
-    const threads = Math.max(cpuCount, 1).toString();
+    const threads = '2';
     console.log(`[WORKER] Using ${threads} CPU threads`);
 
     const hlsPromise = new Promise((resolve, reject) => {
@@ -160,7 +178,9 @@ const processVideoJob = async (job) => {
       cmd
         .on('progress', (progress) => {
           if (progress.percent) {
-            console.log(`[WORKER] FFmpeg HLS progress: ${Math.round(progress.percent)}%`);
+            hlsPercent = Math.max(hlsPercent, progress.percent);
+            updateProgress();
+            // console.log(`[WORKER] FFmpeg HLS progress: ${Math.round(progress.percent)}%`);
           }
         })
         .on('error', (err) => {
@@ -191,7 +211,9 @@ const processVideoJob = async (job) => {
         .output(path.join(tempDir, 'compressed.mp4'))
         .on('progress', (progress) => {
           if (progress.percent) {
-            console.log(`[WORKER] FFmpeg Compress progress: ${Math.round(progress.percent)}%`);
+            compressPercent = Math.max(compressPercent, progress.percent);
+            updateProgress();
+            // console.log(`[WORKER] FFmpeg Compress progress: ${Math.round(progress.percent)}%`);
           }
         })
         .on('error', (err) => {
@@ -273,6 +295,7 @@ const processVideoJob = async (job) => {
       {
         hlsReady: true,
         processingStatus: 'ready',
+        processingProgress: 100,
         hlsMasterPlaylist: `${hlsBaseKey}/master.m3u8`,
         size: video.size // updated compressed size
       },

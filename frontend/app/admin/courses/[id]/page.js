@@ -207,6 +207,14 @@ export default function CourseDetailsPage() {
                       <div>
                         <span className="text-[10px] font-bold text-[#c71e22] uppercase tracking-wider mb-1 block">Lesson {index + 1}</span>
                         <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{video.title}</h3>
+                        {video.processingStatus === 'processing' ? (
+                          <span className="flex items-center text-amber-500 text-xs">
+                            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse mr-1"></div>
+                            Processing {video.processingProgress ? `(${video.processingProgress}%)` : ''}
+                          </span>
+                        ) : video.processingStatus === 'failed' ? (
+                          <span className="text-red-500 text-xs">Failed</span>
+                        ) : null}
                         {video.expiresAt && (
                            <div className="text-[10px] text-amber-500 font-medium mt-1">Expires: {new Date(video.expiresAt).toLocaleDateString()}</div>
                         )}
@@ -261,10 +269,10 @@ export default function CourseDetailsPage() {
               </button>
             </div>
             {playingVideo.processingStatus === 'processing' ? (
-              <div className="w-full aspect-video bg-black text-white flex flex-col items-center justify-center p-6 text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#c71e22] mx-auto mb-4"></div>
-                <h3 className="text-xl font-bold mb-2">Video is processing</h3>
-                <p className="text-gray-400">Please check back in a few minutes.</p>
+              <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center bg-gray-900 rounded-xl text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                <h3 className="text-xl font-bold mb-2">Video is processing {playingVideo.processingProgress ? `(${playingVideo.processingProgress}%)` : ''}</h3>
+                <p className="text-gray-400">Please wait while we prepare the video for streaming.</p>
               </div>
             ) : (
               <div className="w-full bg-black aspect-video relative flex items-center justify-center">
