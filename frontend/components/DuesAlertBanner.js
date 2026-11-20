@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { LockIcon } from "@/components/DashboardIcons";
+import { useFreeAccessExpired } from "@/lib/useFreeAccess";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function DuesAlertBanner({ feeAlert }) {
   const [dismissed, setDismissed] = useState(false);
+  const locked = useFreeAccessExpired();
 
   if (!feeAlert || !feeAlert.hasDue || dismissed) {
     return null;
@@ -71,7 +74,7 @@ export default function DuesAlertBanner({ feeAlert }) {
                 {isDanger ? "🚨 Action Required • Overdue" : "🔔 Payment Notice • Due Soon"}
               </span>
               <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-md text-white">
-                Pending: {formattedAmount}
+                {locked ? <span className="inline-flex items-center gap-1"><LockIcon className="w-3 h-3" /> Fees locked</span> : `Pending: ${formattedAmount}`}
               </span>
               {formattedDueDate && (
                 <span className="text-[11px] text-white/80">
@@ -80,7 +83,7 @@ export default function DuesAlertBanner({ feeAlert }) {
               )}
             </div>
             <p className="text-xs sm:text-sm text-white/90 font-medium leading-relaxed">
-              {message}
+              {locked ? "Fee details are locked. Contact the Jains Computer office to unlock." : message}
             </p>
           </div>
         </div>
@@ -91,7 +94,7 @@ export default function DuesAlertBanner({ feeAlert }) {
             href="/student/fees/"
             className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-gray-900 hover:bg-gray-100 shadow-md transition-all duration-200 hover:scale-105"
           >
-            View Fee Details
+            {locked ? <span className="inline-flex items-center gap-1"><LockIcon className="w-3.5 h-3.5" /> Locked</span> : "View Fee Details"}
           </Link>
           <button
             onClick={() => setDismissed(true)}

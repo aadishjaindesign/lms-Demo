@@ -107,7 +107,7 @@ export default function StudentLayout({ children }) {
 
   return (
     <div
-      className="min-h-screen text-white flex flex-col md:flex-row font-sans selection:bg-[#c71e22] selection:text-white relative overflow-x-hidden bg-transparent"
+      className={`min-h-screen ${isCoursesPage ? "max-md:h-[100dvh] max-md:overflow-hidden" : ""} text-white flex flex-col md:flex-row font-sans selection:bg-[#c71e22] selection:text-white relative overflow-x-hidden bg-transparent`}
     >
       {/* 1. Desktop Left Sidebar (Matching reference screenshot exactly, NO top navbar) */}
       <StudentSidebar studentInfo={studentInfo} />
@@ -116,7 +116,7 @@ export default function StudentLayout({ children }) {
       {!isCoursesPage && (
         <header className="md:hidden bg-[#070606]/92 backdrop-blur-xl border-b border-white/10 h-14 flex items-center justify-between px-4 shrink-0 shadow-lg sticky top-0 z-40">
           <Link href="/student/courses/" className="flex items-center">
-            <img src="/logo@2x.png" alt="Jains Computer" className="h-7 w-auto object-contain" />
+            <img src="/logo-white@2x.png" alt="Jains Computer" className="h-7 w-auto object-contain" />
           </Link>
 
           <Link

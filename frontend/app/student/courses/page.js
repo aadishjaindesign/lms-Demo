@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { LockIcon } from "@/components/DashboardIcons";
+import { useFreeAccessExpired } from "@/lib/useFreeAccess";
 import { fetchApi } from "@/lib/api";
 import { computeMonthAttendance } from "@/lib/attendanceStats";
 import {
@@ -45,6 +47,7 @@ const LOCKED_PREVIEWS = [
 ];
 
 export default function StudentCoursesPage() {
+  const feesLocked = useFreeAccessExpired();
   const [courses, setCourses] = useState([]);
   const [dashboardData, setDashboardData] = useState(null);
   const [attendanceData, setAttendanceData] = useState(null);
@@ -251,34 +254,6 @@ export default function StudentCoursesPage() {
       {/* ======================================================================= */}
       <div className="desktop-view-wrapper hidden md:block">
         <div className="content">
-        {/* Fee Notice Banner (if pending dues and not dismissed) */}
-        {hasDue && !noticeDismissed && (
-          <aside className="notice">
-            <div className="notice-ic">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </div>
-            <div className="notice-txt">
-              <b>Fee installment pending · ₹{Number(dueAmount).toLocaleString("en-IN")}</b>
-              <span>
-                {getDueFormatted(feeAlert?.dueDate)}. Clear your dues to ensure uninterrupted access.
-              </span>
-            </div>
-            <Link href="/student/fees/" className="btn-light" onClick={playClickSound}>
-              Pay Fee
-            </Link>
-            <button
-              type="button"
-              className="x"
-              aria-label="Dismiss notice"
-              onClick={() => setNoticeDismissed(true)}
-            >
-              ✕
-            </button>
-          </aside>
-        )}
 
         {/* Top Welcome Card (Desktop - Matches reference screenshots with Attendance Punch Action) */}
         <section className="card welcome">
@@ -483,33 +458,7 @@ export default function StudentCoursesPage() {
       {/* 2. MOBILE PHONE APP LAYOUT (Visible ONLY on Mobile < md: block md:hidden) */}
       {/* Clean native-app layout matching user reference screenshot (Design #4)   */}
       {/* ======================================================================= */}
-      <div className="mobile-view-wrapper block md:hidden w-full px-4 pt-3 pb-24 text-white">
-        {/* Fee Notice Banner on mobile (if any) */}
-        {hasDue && !noticeDismissed && (
-          <aside className="notice mb-4">
-            <div className="notice-ic">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </div>
-            <div className="notice-txt">
-              <b>Fee pending · ₹{Number(dueAmount).toLocaleString("en-IN")}</b>
-              <span>{getDueFormatted(feeAlert?.dueDate)}</span>
-            </div>
-            <Link href="/student/fees/" className="btn-light" onClick={playClickSound}>
-              Pay
-            </Link>
-            <button
-              type="button"
-              className="x"
-              aria-label="Dismiss notice"
-              onClick={() => setNoticeDismissed(true)}
-            >
-              ✕
-            </button>
-          </aside>
-        )}
+      <div className="mobile-view-wrapper block md:hidden w-full h-[calc(100dvh-4.5rem)] overflow-hidden px-4 pt-3 pb-2 text-white">
 
         {/* Top Header: 100% Round Avatar on left, Bell & Settings on right */}
         <div className="flex items-center justify-between pt-1 pb-3">

@@ -1,10 +1,10 @@
-let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lms-system-project.onrender.com/api';
+let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lmsoffline.jainscomputer.com/api';
 
 if (typeof window !== 'undefined') {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   // Force the production backend URL if the app is hosted live but the env variable was baked as localhost
   if (!isLocalhost && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
-    apiUrl = 'https://lms-system-project.onrender.com/api';
+    apiUrl = 'https://lmsoffline.jainscomputer.com/api';
   }
 }
 

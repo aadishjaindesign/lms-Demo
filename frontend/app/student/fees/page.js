@@ -6,6 +6,8 @@ import gsap from "gsap";
 import { fetchApi } from "@/lib/api";
 import DuesAlertBanner from "@/components/DuesAlertBanner";
 import { useVideoActive } from "@/lib/useVideoActive";
+import { LockIcon } from "@/components/DashboardIcons";
+import { useFreeAccessExpired } from "@/lib/useFreeAccess";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -37,6 +39,7 @@ export default function StudentFeesPage() {
   const [error, setError] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const isVideoActive = useVideoActive();
+  const freeAccessExpired = useFreeAccessExpired();
 
   // GSAP tactile compression animation on card click
   const handleCardClick = (e) => {
@@ -118,6 +121,8 @@ export default function StudentFeesPage() {
     : null;
 
   return (
+    <div className={`relative ${freeAccessExpired ? "h-[calc(100dvh-10rem)] md:h-[calc(100vh-4rem)] overflow-hidden" : ""}`}>
+      <div className={freeAccessExpired ? "blur-md opacity-60 pointer-events-none select-none" : ""} aria-hidden={freeAccessExpired}>
     <motion.div
       variants={containerVariants}
       initial="hidden"
@@ -486,5 +491,20 @@ export default function StudentFeesPage() {
         )}
       </AnimatePresence>
     </motion.div>
+      </div>
+      {freeAccessExpired && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center px-4">
+          <div className="flex flex-col items-center text-center max-w-sm px-6 py-8 rounded-[12px] bg-black/60 backdrop-blur-sm border border-white/10 shadow-2xl text-white">
+            <div className="w-16 h-16 rounded-full bg-[#D71D3A]/20 border border-[#D71D3A]/50 flex items-center justify-center mb-4">
+              <LockIcon className="w-8 h-8 text-[#ff4d63]" />
+            </div>
+            <h2 className="text-xl font-extrabold mb-2">Fees Locked</h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Fee details are locked. Contact the Jains Computer office to unlock.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

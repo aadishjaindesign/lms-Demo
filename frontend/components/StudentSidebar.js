@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { LockIcon } from "@/components/DashboardIcons";
+import { useFreeAccessExpired } from "@/lib/useFreeAccess";
 import { fetchApi } from "@/lib/api";
 
 const FREE_ACCESS_DAYS = 60;
@@ -13,6 +15,7 @@ export default function StudentSidebar({ studentInfo }) {
   const cleanPath = (pathname || "").replace(/\/$/, "");
 
   const [currentStudent, setCurrentStudent] = useState(null);
+  const feesLocked = useFreeAccessExpired();
   const [mounted, setMounted] = useState(false);
   const [learningHref, setLearningHref] = useState("/student/course/");
 
@@ -152,7 +155,7 @@ export default function StudentSidebar({ studentInfo }) {
       <div className="p-6 pb-4">
         <Link href="/student/courses/" className="flex items-center gap-3 group">
           <img
-            src="/logo@2x.png"
+            src="/logo-white@2x.png"
             alt="Jains Computer"
             className="h-9 w-auto object-contain transition-transform group-hover:scale-105"
           />
@@ -175,6 +178,9 @@ export default function StudentSidebar({ studentInfo }) {
               {item.icon}
             </span>
             <span>{item.name}</span>
+            {item.name === "Fees" && feesLocked && (
+              <LockIcon className="ml-auto w-4 h-4" />
+            )}
           </Link>
         ))}
       </nav>
@@ -196,7 +202,7 @@ export default function StudentSidebar({ studentInfo }) {
                 </h4>
               </div>
               <span className="text-2xl shrink-0" role="img" aria-hidden="true">
-                {trial.expired ? "🔒" : "⏳"}
+                {trial.expired ? <LockIcon className="w-6 h-6 text-[#D71D3A]" /> : "⏳"}
               </span>
             </div>
 

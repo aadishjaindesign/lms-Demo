@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { LockIcon } from "@/components/DashboardIcons";
+import { useFreeAccessExpired } from "@/lib/useFreeAccess";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const cleanPath = (pathname || "").replace(/\/$/, "");
+  const feesLocked = useFreeAccessExpired();
   const [learningHref, setLearningHref] = useState("/student/course/");
 
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function MobileBottomNav() {
           className="flex flex-col items-center justify-center py-1 group transition-colors"
         >
           <div
-            className={`flex items-center justify-center transition-all ${
+            className={`relative flex items-center justify-center transition-all ${
               isFees
                 ? "w-11 h-7 rounded-full bg-gradient-to-b from-[#ff2a2a] to-[#a3000a] text-white shadow-[0_6px_16px_-4px_rgba(255,40,40,0.75)]"
                 : "w-11 h-7 text-[#8f8a8b] group-hover:text-white"
@@ -103,6 +106,9 @@ export default function MobileBottomNav() {
               <rect x="2" y="5" width="20" height="14" rx="3" />
               <path d="M2 10h20M7 15h3" strokeLinecap="round" />
             </svg>
+            {feesLocked && (
+              <LockIcon className="absolute -top-1 right-0 w-3 h-3 text-white" />
+            )}
           </div>
           <span
             className={`text-[11px] font-semibold mt-1 tracking-tight ${

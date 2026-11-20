@@ -7,7 +7,6 @@ import gsap from "gsap";
 import { fetchApi } from "@/lib/api";
 import { computeMonthAttendance } from "@/lib/attendanceStats";
 import { useVideoActive } from "@/lib/useVideoActive";
-import StudentAvatar from "@/components/StudentAvatar";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -34,6 +33,19 @@ const cardVariants = {
 };
 
 export default function ProfilePage() {
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("lms_student_info");
+      localStorage.removeItem("student_info");
+      await fetchApi("/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      window.location.href = "/student/login/";
+    }
+  };
+
   const [data, setData] = useState(null);
   const [attendanceStats, setAttendanceStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +121,12 @@ export default function ProfilePage() {
 
         {/* Avatar with Cap from Mockup */}
         <div className="relative z-10 shrink-0">
-          <StudentAvatar name={studentName} size="w-24 h-24 sm:w-28 sm:h-28" />
+          <div
+            className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[#B33945] text-white flex items-center justify-center font-bold text-4xl sm:text-5xl shadow-md uppercase"
+            suppressHydrationWarning
+          >
+            {studentName ? studentName.charAt(0) : "S"}
+          </div>
         </div>
 
         {/* Info & Badges */}
@@ -271,6 +288,17 @@ export default function ProfilePage() {
           </Link>
         </div>
       </motion.div>
+
+      {/* Mobile-only Logout (sidebar with logout is hidden on phones) */}
+      <button
+        onClick={handleLogout}
+        className="md:hidden w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        Logout
+      </button>
     </motion.div>
   );
 }
