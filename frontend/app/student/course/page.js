@@ -22,6 +22,7 @@ function StudentCourseDetailsContent() {
   const [error, setError] = useState("");
   const [playingVideo, setPlayingVideo] = useState(null);
   const [playbackUrl, setPlaybackUrl] = useState("");
+  const [forceMp4, setForceMp4] = useState(false);
   const [urlLoading, setUrlLoading] = useState(false);
   const playerCardRef = useRef(null);
 
@@ -85,8 +86,26 @@ function StudentCourseDetailsContent() {
     }
   };
 
+  // HLS could not play on this device/network: switch to the plain MP4 (different host, simpler delivery)
+  const handleHlsFallback = async () => {
+    const vid = playingVideo;
+    if (!vid || vid.storageProvider !== "r2") return;
+    try {
+      const cid = courseId || course?._id || vid.courseId;
+      const res = await fetchApi(`/courses/${cid}/videos/${vid._id}/playback-url`);
+      if (res.ok) {
+        const data = await res.json();
+        setForceMp4(true);
+        setPlaybackUrl(data.url);
+      }
+    } catch (e) {
+      console.error("MP4 fallback failed", e);
+    }
+  };
+
   const handlePlayVideo = async (video, scrollIntoView = false, targetCourseId = null) => {
     if (!video) return;
+    setForceMp4(false);
     setPlayingVideo(video);
     setUrlLoading(true);
 
@@ -363,7 +382,8 @@ function StudentCourseDetailsContent() {
                 <div className="w-full h-full relative">
                   <VideoPlayer
                     src={playbackUrl}
-                    isHls={playingVideo.hlsReady && playingVideo.storageProvider === "r2"}
+                    isHls={!forceMp4 && playingVideo.hlsReady && playingVideo.storageProvider === "r2"}
+                    onFallback={handleHlsFallback}
                     poster={playingVideo.posterUrl || ""}
                     onDuration={handleVideoDuration}
                   />

@@ -4,25 +4,42 @@ import { createPortal } from "react-dom";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 
-export default function VideoPlayer({ src, poster, isHls, onDuration }) {
+export default function VideoPlayer({ src, poster, isHls, onDuration, onFallback }) {
+  // If the HLS stream cannot play on this device/network, the parent switches to a plain MP4 source.
+  const onFallbackRef = useRef(onFallback);
+  onFallbackRef.current = onFallback;
+  const fallbackCalledRef = useRef(false);
+  const stallTimerRef = useRef(null);
+  const triggerFallback = (reason) => {
+    if (!isHlsRef.current || fallbackCalledRef.current || !onFallbackRef.current) return false;
+    fallbackCalledRef.current = true;
+    console.warn("[VideoPlayer] HLS failed, switching to MP4 fallback:", reason);
+    onFallbackRef.current(reason);
+    return true;
+  };
+  const isHlsRef = useRef(isHls);
+  isHlsRef.current = isHls;
+
   const onDurationRef = useRef(onDuration);
   onDurationRef.current = onDuration;
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const [errorState, setErrorState] = useState(null);
+  const [diagnostic, setDiagnostic] = useState("");
   const [isFocused, setIsFocused] = useState(true);
   const [isSecureBlocked, setIsSecureBlocked] = useState(false);
   const isBlockedRef = useRef(false);
   const [playerNode, setPlayerNode] = useState(null);
   const retryCountRef = useRef(0);
   const isRetryingRef = useRef(false);
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 5;
 
   // Clear error state whenever the video source changes
   useEffect(() => {
     setErrorState(null);
     retryCountRef.current = 0;
     isRetryingRef.current = false;
+    clearTimeout(stallTimerRef.current);
   }, [src]);
 
   const setBlocked = (blocked) => {
@@ -71,6 +88,7 @@ export default function VideoPlayer({ src, poster, isHls, onDuration }) {
 
   useEffect(() => {
     if (!containerRef.current || !src) return;
+    fallbackCalledRef.current = false;
 
     if (typeof window !== "undefined") {
       window.videojs = videojs;
@@ -79,8 +97,10 @@ export default function VideoPlayer({ src, poster, isHls, onDuration }) {
 
       // Global VHS buffer settings to prevent infinite reloading
       if (videojs.Vhs) {
-        videojs.Vhs.GOAL_BUFFER_LENGTH = 30;
-        videojs.Vhs.MAX_GOAL_BUFFER_LENGTH = 60;
+        // Buffer further ahead so short network dips don't cause a stall/reload
+        videojs.Vhs.GOAL_BUFFER_LENGTH = 60;
+        videojs.Vhs.MAX_GOAL_BUFFER_LENGTH = 120;
+        videojs.Vhs.BACK_BUFFER_LENGTH = 30;
       }
 
       // Fix CORS issue: only send cookies to our backend API, not to Cloudflare R2
@@ -143,6 +163,11 @@ export default function VideoPlayer({ src, poster, isHls, onDuration }) {
         vhs: {
           withCredentials: false,
           overrideNative: true,
+          // Remember measured bandwidth between videos so playback starts at a sensible quality
+          useBandwidthFromLocalStorage: true,
+          // Be patient with slow segment/playlist responses instead of failing the stream
+          maxPlaylistRetries: 5,
+          playlistExclusionDuration: 30,
           // Start at 800 Kbps — VHS will measure actual bandwidth and climb from 360p upward.
           // This avoids immediately requesting a large 720p segment on startup.
           initialBandwidth: 800000,
@@ -187,6 +212,20 @@ export default function VideoPlayer({ src, poster, isHls, onDuration }) {
           }
           console.error("[VideoPlayer] Failing Source URL:", player.src());
         });
+
+        // Watchdog: if the stream sits on "buffering" for 12s without progressing, give up on HLS (~12s)
+        const clearStall = () => clearTimeout(stallTimerRef.current);
+        const armStall = () => {
+          clearStall();
+          stallTimerRef.current = setTimeout(() => {
+            if (playerRef.current && !playerRef.current.isDisposed() && !playerRef.current.paused()) {
+              triggerFallback('stalled');
+            }
+          }, 12000);
+        };
+        player.on('waiting', armStall);
+        player.on('play', armStall);
+        ['playing', 'timeupdate', 'pause', 'ended', 'canplaythrough'].forEach((ev) => player.on(ev, clearStall));
 
         player.el().setAttribute('tabIndex', '-1');
         player.el().focus();
@@ -595,16 +634,34 @@ export default function VideoPlayer({ src, poster, isHls, onDuration }) {
           const delay = retryCountRef.current * 1000;
           console.warn(`[VideoPlayer] Retrying video in ${delay}ms (Attempt ${retryCountRef.current}/${MAX_RETRIES})...`);
 
+          // Remember where the student was so a retry resumes there instead of restarting from 0:00
+          const resumeAt = (() => { try { return player.currentTime() || 0; } catch (e) { return 0; } })();
+          const wasPlaying = (() => { try { return !player.paused(); } catch (e) { return false; } })();
+
           setTimeout(() => {
             if (playerRef.current && !playerRef.current.isDisposed()) {
-              playerRef.current.error(null);
-              playerRef.current.src(options.sources);
-              playerRef.current.load();
+              const p = playerRef.current;
+              p.error(null);
+              p.src(options.sources);
+              p.one('loadedmetadata', () => {
+                try {
+                  if (resumeAt > 1) p.currentTime(resumeAt);
+                  if (wasPlaying) p.play()?.catch(() => {});
+                } catch (e) {}
+              });
+              p.load();
             }
             isRetryingRef.current = false;
           }, delay);
           return;
         }
+
+        if (triggerFallback(`error ${err?.code ?? ''}`)) return;
+
+        let failingHost = "";
+        try { failingHost = new URL(player.currentSrc() || "").host; } catch (e) {}
+        const detail = `${err?.code ? `Code ${err.code}` : ""}${failingHost ? ` · ${failingHost}` : ""}`;
+        setDiagnostic(detail);
 
         if (err && err.code !== 4) {
           setErrorState("Unable to load video. Please try again.");
@@ -667,6 +724,7 @@ export default function VideoPlayer({ src, poster, isHls, onDuration }) {
         </div>
         <p className="text-white text-lg font-medium">{errorState}</p>
         <p className="text-gray-400 text-sm mt-2 max-w-md">There was a problem communicating with the video server. Please check your network or try again.</p>
+        {diagnostic && <p className="text-gray-600 text-[11px] mt-2 font-mono">{diagnostic}</p>}
         <button
           onClick={handleManualRetry}
           className="mt-5 px-5 py-2.5 bg-[#c71e22] hover:bg-[#a5191c] text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
