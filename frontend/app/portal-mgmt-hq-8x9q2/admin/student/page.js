@@ -239,6 +239,7 @@ function StudentDetailsContent() {
         <AssignCourseModal 
           studentId={id}
           courses={courses}
+          assignedCourseIds={accessRecords.map((a) => a.courseId?._id).filter(Boolean)}
           onClose={() => setIsAssignModalOpen(false)}
           onSuccess={() => { setIsAssignModalOpen(false); fetchStudentData(); }}
         />
@@ -265,8 +266,16 @@ export default function StudentDetailsPage() {
   );
 }
 
-function AssignCourseModal({ studentId, courses, access, onClose, onSuccess }) {
+function AssignCourseModal({ studentId, courses, access, assignedCourseIds = [], onClose, onSuccess }) {
   const [courseId, setCourseId] = useState(access?.courseId?._id || "");
+  // New assignment: several courses can be ticked and assigned in one go
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const toggleCourse = (cid) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(cid) ? next.delete(cid) : next.add(cid);
+      return next;
+    });
   const [startDate, setStartDate] = useState(
     access ? new Date(access.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
   );
@@ -288,6 +297,37 @@ function AssignCourseModal({ studentId, courses, access, onClose, onSuccess }) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    if (!access) {
+      if (selectedIds.size === 0) {
+        setError("Select at least one course");
+        setLoading(false);
+        return;
+      }
+      try {
+        const results = await Promise.all(
+          [...selectedIds].map(async (cid) => {
+            const r = await fetchApi(`/students/${studentId}/course-access`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ courseId: cid, startDate, expiryDate }),
+            });
+            return r.ok ? null : ((await r.json().catch(() => ({}))).error || "Failed");
+          })
+        );
+        const failed = results.filter(Boolean);
+        if (failed.length === 0) onSuccess();
+        else if (failed.length < results.length) {
+          alert(`${results.length - failed.length} course(s) assigned, ${failed.length} failed: ${failed[0]}`);
+          onSuccess();
+        } else setError(failed[0]);
+      } catch (err) {
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     const payload = { courseId, startDate, expiryDate };
     const url = access 
@@ -326,6 +366,26 @@ function AssignCourseModal({ studentId, courses, access, onClose, onSuccess }) {
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto">
           {error && <div className="mb-4 text-xs font-semibold text-rose-300 bg-rose-950/60 p-3 rounded-xl border border-rose-500/30">{error}</div>}
           
+          {!access ? (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Select Courses *</label>
+                <span className="text-xs font-semibold text-white">{selectedIds.size} selected</span>
+              </div>
+              <div className="border border-white/10 rounded-xl divide-y divide-white/5 max-h-64 overflow-y-auto bg-black/30">
+                {courses.map((c) => {
+                  const has = assignedCourseIds.includes(c._id);
+                  return (
+                    <label key={c._id} className={`flex items-center gap-3 px-3 py-2.5 text-sm ${has ? "opacity-50" : "cursor-pointer hover:bg-white/5"}`}>
+                      <input type="checkbox" disabled={has} checked={has || selectedIds.has(c._id)} onChange={() => toggleCourse(c._id)} className="w-4 h-4 accent-red-600" />
+                      <span className="flex-1 min-w-0 truncate">{c.name}</span>
+                      {has && <span className="text-[10px] font-bold text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5">Assigned</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
           <div className="mb-4">
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Select Course *</label>
             <select 
@@ -342,6 +402,7 @@ function AssignCourseModal({ studentId, courses, access, onClose, onSuccess }) {
               )}
             </select>
           </div>
+          )}
 
           <div className="mb-4">
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Start Date *</label>
@@ -371,7 +432,7 @@ function AssignCourseModal({ studentId, courses, access, onClose, onSuccess }) {
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onClose} className="px-5 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium text-sm">Cancel</button>
             <button type="submit" disabled={loading} className="px-5 py-2.5 bg-gradient-to-r from-[#D71D3A] to-[#BA142D] hover:brightness-110 active:scale-95 text-white rounded-xl shadow-lg shadow-red-950/60 transition-all disabled:opacity-50 font-semibold text-sm">
-              {loading ? "Saving..." : "Save Access"}
+              {loading ? "Saving..." : access ? "Save Access" : `Assign ${selectedIds.size || ""} Course${selectedIds.size === 1 ? "" : "s"}`}
             </button>
           </div>
         </form>
