@@ -40,6 +40,8 @@ const allowedOrigins = [
   'https://frontend-rmvw.vercel.app',
   'https://lms.jainscomputer.com',
   'https://www.lms.jainscomputer.com',
+  'https://student.jainscomputer.com',
+  'https://admin.jainscomputer.com',
   'https://kreach.in',
   'https://www.kreach.in',
   // Extra origins without a code change: ALLOWED_ORIGINS=https://a.vercel.app,https://b.com
