@@ -1,5 +1,6 @@
 import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import PwaInstall from "@/components/PwaInstall";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -14,12 +15,18 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata = {
   title: "Jains Computer LMS",
   description: "Jains Computer Lecture Management System",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Jains LMS",
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Jains LMS", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#070606",
 };
 
 export default function RootLayout({ children }) {
@@ -32,6 +39,7 @@ export default function RootLayout({ children }) {
         <div className="app min-h-screen relative z-[1]">
           {children}
         </div>
+        <PwaInstall />
       </body>
     </html>
   );

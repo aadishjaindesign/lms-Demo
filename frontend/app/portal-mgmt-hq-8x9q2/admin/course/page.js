@@ -24,6 +24,9 @@ function CourseDetailsContent() {
   const [error, setError] = useState("");
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isRosterOpen, setIsRosterOpen] = useState(false);
+  const [assignNotice, setAssignNotice] = useState("");
   const [isEditVideoModalOpen, setIsEditVideoModalOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState(null);
   const [playingVideo, setPlayingVideo] = useState(null);
@@ -154,6 +157,21 @@ function CourseDetailsContent() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight break-words">{course.name}</h1>
           <p className="text-gray-400 text-sm mt-0.5">{course.description || "Manage videos for this course"}</p>
         </div>
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+        <button
+          onClick={() => setIsRosterOpen(true)}
+          className="w-full md:w-auto justify-center bg-white/10 hover:bg-white/15 border border-white/10 active:scale-95 text-white px-5 py-2.5 rounded-2xl transition-all font-semibold flex items-center gap-2 text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+          View Students
+        </button>
+        <button
+          onClick={() => setIsAssignModalOpen(true)}
+          className="w-full md:w-auto justify-center bg-white/10 hover:bg-white/15 border border-white/10 active:scale-95 text-white px-5 py-2.5 rounded-2xl transition-all font-semibold flex items-center gap-2 text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-4.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          Assign Students
+        </button>
         <button
           onClick={() => setIsUploadModalOpen(true)}
           className="w-full md:w-auto justify-center bg-gradient-to-r from-[#D71D3A] to-[#BA142D] hover:brightness-110 active:scale-95 text-white px-5 py-2.5 rounded-2xl shadow-lg shadow-red-950/60 transition-all font-semibold flex items-center gap-2 text-sm"
@@ -161,7 +179,11 @@ function CourseDetailsContent() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
           Upload Video
         </button>
+        </div>
       </div>
+      {assignNotice && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-semibold px-4 py-3 rounded-xl">{assignNotice}</div>
+      )}
 
       {/* Videos List */}
       <div className="bg-[#1C1C1E]/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-5 sm:p-6 flex-1">
@@ -247,6 +269,19 @@ function CourseDetailsContent() {
         )}
       </div>
 
+      {isRosterOpen && (
+        <CourseStudentsModal courseId={id} courseName={course.name} onClose={() => setIsRosterOpen(false)} />
+      )}
+
+      {isAssignModalOpen && (
+        <AssignStudentsModal
+          courseId={id}
+          courseName={course.name}
+          onClose={() => setIsAssignModalOpen(false)}
+          onSuccess={(msg) => { setIsAssignModalOpen(false); setAssignNotice(msg); }}
+        />
+      )}
+
       {isUploadModalOpen && (
         <UploadVideoModal 
           courseId={id} 
@@ -297,6 +332,23 @@ function CourseDetailsContent() {
     </div>
   );
 }
+
+// Reads the real length (seconds) of a local video file from its metadata.
+const readVideoDuration = (file) =>
+  new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      const done = (val) => { URL.revokeObjectURL(url); resolve(val); };
+      v.onloadedmetadata = () => done(Number.isFinite(v.duration) ? Math.round(v.duration) : 0);
+      v.onerror = () => done(0);
+      setTimeout(() => done(0), 15000);
+      v.src = url;
+    } catch (e) {
+      resolve(0);
+    }
+  });
 
 export default function CourseDetailsPage() {
   return (
@@ -525,7 +577,7 @@ function UploadVideoModal({ courseId, onClose, onSuccess }) {
           method: "POST",
           headers,
           credentials: "include",
-          body: JSON.stringify({ videoId, objectKey }),
+          body: JSON.stringify({ videoId, objectKey, duration: await readVideoDuration(item.file) }),
           signal: abortControllerRef.current.signal
         });
 
@@ -795,6 +847,227 @@ function EditVideoModal({ video, onClose, onSuccess }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+
+function AssignStudentsModal({ courseId, courseName, onClose, onSuccess }) {
+  const toInput = (d) => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const nextYear = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+  const [students, setStudents] = useState([]);
+  const [alreadyIds, setAlreadyIds] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(new Set());
+  const [startDate, setStartDate] = useState(toInput(today));
+  const [expiryDate, setExpiryDate] = useState(toInput(nextYear));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [sRes, aRes] = await Promise.all([
+          fetchApi("/students"),
+          fetchApi(`/students/course-access-ids/${courseId}`),
+        ]);
+        if (sRes.ok) {
+          const data = await sRes.json();
+          setStudents(Array.isArray(data) ? data : []);
+        }
+        if (aRes.ok) setAlreadyIds(new Set((await aRes.json()).studentIds || []));
+      } catch (e) {
+        setError("Failed to load students");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [courseId]);
+
+  const q = search.trim().toLowerCase();
+  const filtered = students.filter(
+    (s) => !q || [s.name, s.phone, s.studentId].some((v) => String(v || "").toLowerCase().includes(q))
+  );
+  const selectable = filtered.filter((s) => !alreadyIds.has(s._id));
+  const allSelected = selectable.length > 0 && selectable.every((s) => selected.has(s._id));
+
+  const toggle = (sid) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(sid) ? next.delete(sid) : next.add(sid);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      selectable.forEach((s) => (allSelected ? next.delete(s._id) : next.add(s._id)));
+      return next;
+    });
+
+  const handleAssign = async () => {
+    setError("");
+    if (selected.size === 0) return setError("Select at least one student");
+    if (new Date(startDate) >= new Date(expiryDate)) return setError("Expiry date must be after start date");
+    setSaving(true);
+    try {
+      const res = await fetchApi("/students/bulk-course-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId, studentIds: [...selected], startDate, expiryDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to assign students");
+      onSuccess(`${data.assigned} student(s) assigned to ${courseName}${data.skipped ? ` (${data.skipped} already had access)` : ""}.`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputCls = "w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/40";
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1C1C1E] border border-white/10 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-black/40">
+          <div>
+            <h2 className="text-lg font-bold">Assign Students</h2>
+            <p className="text-xs text-gray-400">{courseName}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white hover:bg-white/10 rounded-lg p-1">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3 overflow-y-auto">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, phone or ID..." className={inputCls} />
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-red-600" />
+              Select all ({selectable.length})
+            </label>
+            <span className="font-semibold text-white">{selected.size} selected</span>
+          </div>
+
+          <div className="border border-white/10 rounded-xl divide-y divide-white/5 max-h-72 overflow-y-auto">
+            {loading ? (
+              <p className="p-4 text-sm text-gray-400">Loading students...</p>
+            ) : filtered.length === 0 ? (
+              <p className="p-4 text-sm text-gray-400">No students found.</p>
+            ) : (
+              filtered.map((s) => {
+                const has = alreadyIds.has(s._id);
+                return (
+                  <label key={s._id} className={`flex items-center gap-3 px-3 py-2.5 ${has ? "opacity-50" : "cursor-pointer hover:bg-white/5"}`}>
+                    <input type="checkbox" disabled={has} checked={has || selected.has(s._id)} onChange={() => toggle(s._id)} className="w-4 h-4 accent-red-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{s.name}</p>
+                      <p className="text-[11px] text-gray-400">{s.studentId} · {s.phone}</p>
+                    </div>
+                    {has && <span className="text-[10px] font-bold text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5">Assigned</span>}
+                  </label>
+                );
+              })
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Start date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Expiry date</label>
+              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className={inputCls} />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-400 font-semibold">{error}</p>}
+        </div>
+
+        <div className="px-6 py-4 border-t border-white/10 flex gap-2 bg-black/40">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-semibold">Cancel</button>
+          <button onClick={handleAssign} disabled={saving || selected.size === 0} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#D71D3A] to-[#BA142D] disabled:opacity-50 text-sm font-semibold">
+            {saving ? "Assigning..." : `Assign ${selected.size || ""} Student${selected.size === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function CourseStudentsModal({ courseId, courseName, onClose }) {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetchApi(`/students/course-students/${courseId}`);
+        if (!res.ok) throw new Error("Failed to load students");
+        setList(await res.json());
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [courseId]);
+
+  const q = search.trim().toLowerCase();
+  const filtered = list.filter((s) => !q || [s.name, s.phone, s.studentId].some((v) => String(v || "").toLowerCase().includes(q)));
+  const fmt = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const badge = {
+    active: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+    expired: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+    revoked: "text-red-400 border-red-500/30 bg-red-500/10",
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1C1C1E] border border-white/10 rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-black/40">
+          <div>
+            <h2 className="text-lg font-bold">Course Students <span className="text-gray-400 font-medium">({list.length})</span></h2>
+            <p className="text-xs text-gray-400">{courseName}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white hover:bg-white/10 rounded-lg p-1">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <div className="p-4 space-y-3 overflow-y-auto">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, phone or ID..." className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/40" />
+          {error && <p className="text-sm text-red-400 font-semibold">{error}</p>}
+          <div className="border border-white/10 rounded-xl divide-y divide-white/5">
+            {loading ? (
+              <p className="p-4 text-sm text-gray-400">Loading students...</p>
+            ) : filtered.length === 0 ? (
+              <p className="p-4 text-sm text-gray-400">{list.length === 0 ? "No students are assigned to this course yet." : "No students found."}</p>
+            ) : (
+              filtered.map((s, i) => (
+                <div key={s.accessId} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="w-6 text-xs text-gray-500 text-right">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">{s.name}</p>
+                    <p className="text-[11px] text-gray-400">{s.studentId} · {s.phone}</p>
+                    <p className="text-[11px] text-gray-500">{s.startDate && s.expiryDate ? `${fmt(s.startDate)} → ${fmt(s.expiryDate)}` : "No expiry set"}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase border rounded-full px-2 py-0.5 ${badge[s.accessStatus]}`}>{s.accessStatus}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-white/10 bg-black/40">
+          <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-semibold">Close</button>
+        </div>
       </div>
     </div>
   );

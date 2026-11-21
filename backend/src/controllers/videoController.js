@@ -546,7 +546,7 @@ export const generatePresignedUrl = async (req, res) => {
 // Upload Complete trigger
 export const uploadComplete = async (req, res) => {
   try {
-    const { videoId, objectKey } = req.body;
+    const { videoId, objectKey, duration } = req.body;
 
     if (!videoId || !objectKey) {
       return res.status(400).json({ error: "videoId and objectKey are required" });
@@ -557,6 +557,10 @@ export const uploadComplete = async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
+    const parsedDuration = Math.round(Number(duration));
+    if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+      video.duration = parsedDuration;
+    }
     video.processingStatus = "processing";
     await video.save();
 

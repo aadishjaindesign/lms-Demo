@@ -27,7 +27,7 @@ function StudentCourseDetailsContent() {
 
   // Friendly duration formatter matching screenshots: "1h 46m", "34m"
   const formatDurationFriendly = (seconds) => {
-    if (!seconds || seconds <= 0) return "1h 40m";
+    if (!seconds || seconds <= 0) return "--";
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     if (h > 0) return `${h}h ${m.toString().padStart(2, "0")}m`;
@@ -65,6 +65,24 @@ function StudentCourseDetailsContent() {
       return url.replace("/upload/", "/upload/f_auto,q_auto/");
     }
     return url;
+  };
+
+  // Real length from the player's metadata: show it immediately and save it if the server doesn't have it yet
+  const handleVideoDuration = (seconds) => {
+    const vid = playingVideo;
+    if (!vid || !seconds) return;
+    const secs = Math.round(seconds);
+    if (vid.duration === secs) return;
+    setVideos((prev) => prev.map((v) => (v._id === vid._id ? { ...v, duration: secs } : v)));
+    setPlayingVideo((prev) => (prev && prev._id === vid._id ? { ...prev, duration: secs } : prev));
+    if (!vid.duration) {
+      const cid = courseId || course?._id || vid.courseId;
+      fetchApi(`/student/courses/${cid}/videos/${vid._id}/duration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duration: secs }),
+      }).catch(() => {});
+    }
   };
 
   const handlePlayVideo = async (video, scrollIntoView = false, targetCourseId = null) => {
@@ -251,8 +269,8 @@ function StudentCourseDetailsContent() {
   if (error || !course) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
-        <div className="bg-[#14080a] border border-red-500/20 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
-          <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+        <div className="bg-[#1C1C1E]/95 border border-red-500/20 rounded-[8px] p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="w-14 h-14 bg-red-500/10 rounded-[8px] flex items-center justify-center mx-auto mb-4 border border-red-500/30">
             <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -273,7 +291,7 @@ function StudentCourseDetailsContent() {
   const studentIdentifier = dashboardData?.enrollmentNumber || dashboardData?.studentId || "JAINS COMPUTER";
 
   return (
-    <div className="text-[#f6f3f3] max-w-5xl mx-auto pb-10">
+    <div className="text-[#f6f3f3] max-w-5xl mx-auto px-3 sm:px-4 pb-10">
       {/* 1. TOP HEADER SECTION */}
       <section className="pt-2 sm:pt-4">
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
@@ -326,9 +344,9 @@ function StudentCourseDetailsContent() {
 
       {/* 2. FEATURED ACTIVE VIDEO PLAYER CARD */}
       <section ref={playerCardRef} className="mt-5">
-        <div className="bg-[#130f10] border border-white/10 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative">
+        <div className="bg-[#1C1C1E]/95 border border-white/10 rounded-[8px] p-3 sm:p-5 shadow-xl relative">
           {/* 16:9 Video Container */}
-          <div className="aspect-video w-full rounded-xl sm:rounded-2xl overflow-hidden bg-black relative border border-white/5 flex items-center justify-center">
+          <div className="aspect-video w-full rounded-[8px] overflow-hidden bg-black relative border border-white/5 flex items-center justify-center">
             {playingVideo ? (
               playingVideo.processingStatus === "processing" ? (
                 <div className="text-white flex flex-col items-center justify-center p-6 text-center">
@@ -347,6 +365,7 @@ function StudentCourseDetailsContent() {
                     src={playbackUrl}
                     isHls={playingVideo.hlsReady && playingVideo.storageProvider === "r2"}
                     poster={playingVideo.posterUrl || ""}
+                    onDuration={handleVideoDuration}
                   />
                   {/* Subtle Security / Identification Watermark */}
                   <div className="pointer-events-none absolute bottom-12 right-4 z-20 text-[10px] text-white/20 uppercase tracking-widest font-mono font-bold select-none">
@@ -408,7 +427,7 @@ function StudentCourseDetailsContent() {
               return (
                 <div
                   key={video._id}
-                  className="min-w-0 bg-[#130f10] border border-white/10 rounded-2xl p-3 flex flex-col justify-between hover:border-white/20 transition-all select-none"
+                  className="min-w-0 bg-[#1C1C1E]/95 border border-white/10 rounded-[8px] p-3 flex flex-col justify-between hover:border-white/20 transition-all select-none"
                 >
                   <div>
                     {/* Thumbnail: Grid overlay + Ambient glow + Play circle */}
@@ -497,7 +516,7 @@ function StudentCourseDetailsContent() {
         </h2>
 
         {videos.length === 0 ? (
-          <div className="bg-[#130f10] border border-white/10 rounded-2xl p-8 text-center text-white/50">
+          <div className="bg-[#1C1C1E]/95 border border-white/10 rounded-[8px] p-8 text-center text-white/50">
             <svg viewBox="0 0 24 24" className="w-10 h-10 mx-auto text-white/20 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
@@ -522,14 +541,14 @@ function StudentCourseDetailsContent() {
                       handlePlayVideo(video, true);
                     }
                   }}
-                  className={`rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-3 transition-all select-none ${
+                  className={`rounded-[8px] p-2.5 sm:p-3 flex items-center justify-between gap-3 transition-all select-none ${
                     isNowPlaying
-                      ? "bg-[#130f10] border border-[#ff2a2a]/70 shadow-[0_0_20px_rgba(255,42,42,0.18)] cursor-pointer"
+                      ? "bg-[#1C1C1E]/95 border border-[#ff2a2a]/70 shadow-[0_0_20px_rgba(255,42,42,0.18)] cursor-pointer"
                       : isExpired
-                      ? "bg-[#130f10]/60 border border-white/5 opacity-60 cursor-not-allowed"
+                      ? "bg-[#1C1C1E]/60 border border-white/5 opacity-60 cursor-not-allowed"
                       : isUpcoming
-                      ? "bg-[#130f10]/80 border border-white/10 opacity-75 cursor-not-allowed"
-                      : "bg-[#130f10] border border-white/10 hover:border-white/25 cursor-pointer"
+                      ? "bg-[#1C1C1E]/80 border border-white/10 opacity-75 cursor-not-allowed"
+                      : "bg-[#1C1C1E]/95 border border-white/10 hover:border-white/25 cursor-pointer"
                   }`}
                 >
                   {/* Left: Thumbnail with grid texture + center icon */}

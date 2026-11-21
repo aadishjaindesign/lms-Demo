@@ -82,7 +82,7 @@ export default function StudentFeesPage() {
   if (error) {
     return (
       <div className="p-4 md:p-8 max-w-7xl mx-auto text-center py-14">
-        <div className="bg-red-50 text-[#c71e22] p-6 rounded-2xl inline-block max-w-md font-medium border border-red-200/60 shadow-sm">
+        <div className="bg-red-50 text-[#c71e22] p-6 rounded-[8px] inline-block max-w-md font-medium border border-red-200/60 shadow-sm">
           <p className="font-bold text-base mb-1">Fee Ledger Error</p>
           <p className="text-xs text-gray-600 mb-4">{error}</p>
           <button
@@ -127,7 +127,7 @@ export default function StudentFeesPage() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="flex flex-col gap-6 max-w-7xl mx-auto h-full px-2 sm:px-4"
+      className="flex flex-col gap-6 max-w-5xl mx-auto h-full px-3 sm:px-4"
     >
       {/* 1. Dynamic Dues Alert Banner */}
       {hasDue && <DuesAlertBanner feeAlert={feeAlertData} />}
@@ -135,7 +135,7 @@ export default function StudentFeesPage() {
       {/* 2. Header Hero Banner with Signature Gradient Theme */}
       <motion.div
         variants={cardVariants}
-        className="relative overflow-hidden rounded-3xl bg-[#1C1C1E]/95 border border-white/10 p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+        className="relative overflow-hidden rounded-[8px] bg-[#1C1C1E]/95 border border-white/10 p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
       >
         <div className="absolute -top-16 -right-16 w-56 h-56 bg-gradient-to-br from-[#8D0E1F]/40 to-transparent rounded-full blur-3xl pointer-events-none"></div>
 
@@ -157,7 +157,7 @@ export default function StudentFeesPage() {
         </div>
 
         {/* Account Status Badge */}
-        <div className="relative z-10 flex items-center gap-3.5 bg-black/60 backdrop-blur-md px-6 py-4 rounded-3xl border border-white/15 shadow-sm shrink-0">
+        <div className="relative z-10 flex items-center gap-3.5 bg-black/60 backdrop-blur-md px-6 py-4 rounded-[8px] border border-white/15 shadow-sm shrink-0">
           <div className="text-right">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Account Standing</span>
             <div
@@ -169,7 +169,7 @@ export default function StudentFeesPage() {
             </div>
           </div>
           <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-2xs ${
+            className={`w-12 h-12 rounded-[8px] flex items-center justify-center font-black text-lg shadow-2xs ${
               feeStatus === "paid"
                 ? "bg-emerald-900/80 text-emerald-300 border border-emerald-500/40"
                 : "bg-amber-900/80 text-amber-300 border border-amber-500/40"
@@ -235,7 +235,7 @@ export default function StudentFeesPage() {
         {/* Tuition Inclusion Card */}
         <motion.div
           variants={cardVariants}
-          className="bg-[#1C1C1E]/95 rounded-3xl border border-white/10 p-6 shadow-lg flex flex-col justify-between"
+          className="bg-[#1C1C1E]/95 rounded-[8px] border border-white/10 p-6 shadow-xl flex flex-col justify-between"
         >
           <div>
             <h3 className="font-extrabold text-white text-base mb-1">Fee Inclusions &amp; Coverage</h3>
@@ -270,7 +270,7 @@ export default function StudentFeesPage() {
         {/* Official Payment Methods & Counter Card */}
         <motion.div
           variants={cardVariants}
-          className="lg:col-span-2 bg-[#1C1C1E]/95 rounded-3xl border border-white/10 p-6 shadow-lg flex flex-col justify-between"
+          className="lg:col-span-2 bg-[#1C1C1E]/95 rounded-[8px] border border-white/10 p-6 shadow-xl flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -282,7 +282,7 @@ export default function StudentFeesPage() {
             <p className="text-xs text-gray-400 mb-4">How to settle upcoming course installment payments</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+              <div className="p-4 rounded-[8px] bg-black/40 border border-white/5">
                 <div className="flex items-center gap-2.5 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-red-900/60 text-red-300 flex items-center justify-center font-bold text-xs">
                     🏢
@@ -297,7 +297,7 @@ export default function StudentFeesPage() {
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+              <div className="p-4 rounded-[8px] bg-black/40 border border-white/5">
                 <div className="flex items-center gap-2.5 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-emerald-950/80 text-emerald-300 flex items-center justify-center font-bold text-xs">
                     📱
@@ -322,7 +322,7 @@ export default function StudentFeesPage() {
       </div>
 
       {/* 5. Installment Schedule & Verified Receipts Table */}
-      <motion.div variants={cardVariants} className="bg-[#1C1C1E]/95 rounded-3xl border border-white/10 shadow-xl overflow-hidden text-white">
+      <motion.div variants={cardVariants} className="bg-[#1C1C1E]/95 rounded-[8px] border border-white/10 shadow-xl overflow-hidden text-white">
         <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">Installment Schedule &amp; Receipts</h2>
@@ -432,7 +432,7 @@ export default function StudentFeesPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-[#1C1C1E] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-white/10 relative text-white"
+              className="bg-[#1C1C1E] rounded-[8px] max-w-md w-full p-6 sm:p-8 shadow-2xl border border-white/10 relative text-white"
             >
               <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
                 <div className="flex items-center gap-2.5">
@@ -448,7 +448,7 @@ export default function StudentFeesPage() {
               </div>
 
               <div className="space-y-3 text-xs text-gray-300 mb-6">
-                <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-between">
+                <div className="p-4 rounded-[8px] bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase text-emerald-300">Amount Received</span>
                     <div className="text-2xl font-black text-white mt-0.5">
@@ -482,7 +482,7 @@ export default function StudentFeesPage() {
 
               <button
                 onClick={() => setSelectedReceipt(null)}
-                className="w-full py-3 rounded-2xl bg-[#c71e22] text-white font-bold text-xs hover:bg-[#a5191c] transition-colors"
+                className="w-full py-3 rounded-[8px] bg-[#c71e22] text-white font-bold text-xs hover:bg-[#a5191c] transition-colors"
               >
                 Close Voucher
               </button>
@@ -494,7 +494,7 @@ export default function StudentFeesPage() {
       </div>
       {freeAccessExpired && (
         <div className="absolute inset-0 z-20 flex items-center justify-center px-4">
-          <div className="flex flex-col items-center text-center max-w-sm px-6 py-8 rounded-[12px] bg-black/60 backdrop-blur-sm border border-white/10 shadow-2xl text-white">
+          <div className="flex flex-col items-center text-center max-w-sm px-6 py-8 rounded-[8px] bg-black/60 backdrop-blur-sm border border-white/10 shadow-2xl text-white">
             <div className="w-16 h-16 rounded-full bg-[#D71D3A]/20 border border-[#D71D3A]/50 flex items-center justify-center mb-4">
               <LockIcon className="w-8 h-8 text-[#ff4d63]" />
             </div>

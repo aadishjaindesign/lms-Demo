@@ -107,14 +107,14 @@ export default function StudentLayout({ children }) {
 
   return (
     <div
-      className={`min-h-screen ${isCoursesPage ? "max-md:h-[100dvh] max-md:overflow-hidden" : ""} text-white flex flex-col md:flex-row font-sans selection:bg-[#c71e22] selection:text-white relative overflow-x-hidden bg-transparent`}
+      className={`min-h-screen max-md:fixed max-md:inset-0 max-md:min-h-0 max-md:overflow-hidden text-white flex flex-col md:flex-row font-sans selection:bg-[#c71e22] selection:text-white relative overflow-x-hidden bg-transparent`}
     >
       {/* 1. Desktop Left Sidebar (Matching reference screenshot exactly, NO top navbar) */}
       <StudentSidebar studentInfo={studentInfo} />
 
       {/* 2. Unified Mobile App Top Bar: Left = Logo only, Right = Student Avatar (RS/KS) (Hidden on courses page to match native mobile app look) */}
       {!isCoursesPage && (
-        <header className="md:hidden bg-[#070606]/92 backdrop-blur-xl border-b border-white/10 h-14 flex items-center justify-between px-4 shrink-0 shadow-lg sticky top-0 z-40">
+        <header className="md:hidden bg-[#070606]/92 backdrop-blur-xl border-b border-white/10 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between px-4 shrink-0 shadow-lg sticky top-0 z-40">
           <Link href="/student/courses/" className="flex items-center">
             <img src="/logo-white@2x.png" alt="Jains Computer" className="h-7 w-auto object-contain" />
           </Link>
@@ -132,12 +132,12 @@ export default function StudentLayout({ children }) {
       )}
 
       {/* 3. Main Content Area */}
-      <div className="flex-1 flex flex-col h-full md:h-screen md:overflow-y-auto">
+      <div className="flex-1 min-h-0 flex flex-col max-md:overflow-y-auto max-md:[-webkit-overflow-scrolling:touch] max-md:overscroll-contain md:h-screen md:overflow-y-auto">
         <main
           className={`flex-1 w-full ${
             isCoursesPage
               ? "p-0 md:p-8 md:max-w-6xl md:mx-auto"
-              : "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8"
+              : "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-4 md:pb-8"
           }`}
         >
           {children}
@@ -145,7 +145,7 @@ export default function StudentLayout({ children }) {
       </div>
 
       {/* 4. Sleek Mobile Bottom Navigation (Visible ONLY on Mobile screens < md) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50">
+      <div className="md:hidden shrink-0 z-50">
         <MobileBottomNav />
       </div>
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent } from '../controllers/studentController.js';
-import { getStudentCourseAccess, assignCourse, editCourseAccess, revokeCourseAccess, restoreCourseAccess, deleteCourseAccess } from '../controllers/courseAccessController.js';
+import { getStudentCourseAccess, assignCourse, bulkAssignCourse, getCourseStudents, getCourseAssignedStudentIds, editCourseAccess, revokeCourseAccess, restoreCourseAccess, deleteCourseAccess } from '../controllers/courseAccessController.js';
 import { verifyAdmin } from '../middleware/authMiddleware.js';
 import { verifyAdminGateway } from '../middleware/adminSecurityMiddleware.js';
 
@@ -12,6 +12,10 @@ router.use(verifyAdmin); // Protect all student routes for Admin only
 router.route('/')
   .get(getStudents)
   .post(createStudent);
+
+router.get('/course-students/:courseId', getCourseStudents);
+router.post('/bulk-course-access', bulkAssignCourse);
+router.get('/course-access-ids/:courseId', getCourseAssignedStudentIds);
 
 router.route('/:id')
   .get(getStudentById)

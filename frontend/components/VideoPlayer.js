@@ -4,7 +4,9 @@ import { createPortal } from "react-dom";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 
-export default function VideoPlayer({ src, poster, isHls }) {
+export default function VideoPlayer({ src, poster, isHls, onDuration }) {
+  const onDurationRef = useRef(onDuration);
+  onDurationRef.current = onDuration;
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const [errorState, setErrorState] = useState(null);
@@ -493,6 +495,10 @@ export default function VideoPlayer({ src, poster, isHls }) {
         
         player.on('loadedmetadata', () => {
           t_metadata = performance.now();
+          try {
+            const d = player.duration();
+            if (Number.isFinite(d) && d > 0) onDurationRef.current?.(d);
+          } catch (e) {}
           if (isHls && player.qualityLevels) {
              const ql = player.qualityLevels();
              console.log("[QUALITY DEBUG]");

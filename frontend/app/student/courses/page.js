@@ -458,10 +458,10 @@ export default function StudentCoursesPage() {
       {/* 2. MOBILE PHONE APP LAYOUT (Visible ONLY on Mobile < md: block md:hidden) */}
       {/* Clean native-app layout matching user reference screenshot (Design #4)   */}
       {/* ======================================================================= */}
-      <div className="mobile-view-wrapper block md:hidden w-full h-[calc(100dvh-4.5rem)] overflow-hidden px-4 pt-3 pb-2 text-white">
+      <div className="mobile-view-wrapper block md:hidden w-full px-4 pb-2 text-white home-fit" style={{ paddingTop: "max(10px, env(safe-area-inset-top))" }}>
 
         {/* Top Header: 100% Round Avatar on left, Bell & Settings on right */}
-        <div className="flex items-center justify-between pt-1 pb-3">
+        <div className="flex items-center justify-between pb-2">
           {/* Left: 100% Circular Avatar */}
           <Link href="/student/profile/" onClick={playClickSound} className="relative block group">
             <div className="app-avatar" suppressHydrationWarning>
@@ -499,8 +499,8 @@ export default function StudentCoursesPage() {
         </div>
 
         {/* Greeting & Student ID */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2 tracking-tight" suppressHydrationWarning>
+        <div className="mb-3">
+          <h1 className="text-[22px] font-extrabold text-white flex items-center gap-2 tracking-tight" suppressHydrationWarning>
             Hello, {firstNameDisplay} <span className="inline-block">👋</span>
           </h1>
           <p className="text-xs text-gray-400 font-mono tracking-wide mt-0.5" suppressHydrationWarning>
@@ -512,7 +512,7 @@ export default function StudentCoursesPage() {
         <Link
           href="/student/attendance/"
           onClick={playClickSound}
-          className="mb-6 flex items-center gap-3.5 rounded-2xl border border-white/10 bg-[#141112] px-4 py-3 active:scale-[0.99] transition-transform"
+          className="mb-4 flex items-center gap-3.5 rounded-2xl border border-white/10 bg-[#141112] px-4 py-3 active:scale-[0.99] transition-transform"
         >
           <span
             className={`shrink-0 text-[28px] font-extrabold leading-none tabular-nums ${
@@ -553,19 +553,19 @@ export default function StudentCoursesPage() {
         </Link>
 
         {/* Section 1: Continue Learning (Equal padding, perfectly aligned) */}
-        <section className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold text-white tracking-tight">Continue Learning</h2>
+        <section className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-bold text-white tracking-tight">Continue Learning</h2>
             <Link href="/student/course/" className="text-gray-400 hover:text-white transition-colors p-1" onClick={playClickSound}>
               <HiArrowRight className="w-5 h-5" />
             </Link>
           </div>
 
           {/* Horizontal Scroll Carousel (Proper padding on both left and right) */}
-          <div className="flex gap-3.5 overflow-x-auto pb-3 scrollbar-none snap-x snap-mandatory">
+          <div className="flex gap-3.5 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory">
             {/* Active Assigned Courses */}
             {loading ? (
-              <div className="w-[245px] h-[195px] shrink-0 bg-white/5 border border-white/10 rounded-[24px] p-5 animate-pulse" />
+              <div className="app-course-card !p-5 shrink-0 bg-white/5 border border-white/10 rounded-[24px] p-5 animate-pulse" />
             ) : courses.length > 0 ? (
               courses.map((course, idx) => (
                 <Link
@@ -638,11 +638,11 @@ export default function StudentCoursesPage() {
         </section>
 
         {/* Section 2: Online Programs (Mobile - Blurred as requested) */}
-        <section className="mt-6 mb-4">
-          <div className="flex items-center justify-between mb-3">
+        <section className="mt-2 mb-0">
+          <div className="flex items-center justify-between mb-1">
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Online Programs</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Learn Anytime, At Your Own Pace.</p>
+              <h2 className="text-lg font-bold text-white tracking-tight">Online Programs</h2>
+              <p className="text-xs text-gray-400 mt-0.5 [@media(max-height:700px)]:hidden">Learn Anytime, At Your Own Pace.</p>
             </div>
             <button
               type="button"
@@ -657,7 +657,7 @@ export default function StudentCoursesPage() {
           {/* 4 Circular Program Icons with Blur effect */}
           <div className="relative">
             <div
-              className="flex items-center justify-between px-2 pt-2 pb-3 select-none pointer-events-none"
+              className="flex items-center justify-between px-2 pt-1 pb-1 select-none pointer-events-none"
               style={{ filter: "blur(6px) saturate(0.8)", opacity: 0.55 }}
             >
               {/* 1. Marketing */}
@@ -665,7 +665,7 @@ export default function StudentCoursesPage() {
                 <div className="app-prog-circle">
                   <SiGoogleads className="w-7 h-7 text-[#4285F4]" />
                 </div>
-                <span className="text-xs font-semibold text-gray-300 mt-2.5">Marketing</span>
+                <span className="text-[11px] font-semibold text-gray-300 mt-1.5">Marketing</span>
               </div>
 
               {/* 2. Cad */}
@@ -673,7 +673,7 @@ export default function StudentCoursesPage() {
                 <div className="app-prog-circle">
                   <SiAutodesk className="w-7 h-7 text-[#E01A22]" />
                 </div>
-                <span className="text-xs font-semibold text-gray-300 mt-2.5">Cad</span>
+                <span className="text-[11px] font-semibold text-gray-300 mt-1.5">Cad</span>
               </div>
 
               {/* 3. Web Dev */}
@@ -681,7 +681,7 @@ export default function StudentCoursesPage() {
                 <div className="app-prog-circle">
                   <FaReact className="w-8 h-8 text-[#00D8FF]" />
                 </div>
-                <span className="text-xs font-semibold text-gray-300 mt-2.5">Web Dev</span>
+                <span className="text-[11px] font-semibold text-gray-300 mt-1.5">Web Dev</span>
               </div>
 
               {/* 4. Video */}
@@ -689,16 +689,16 @@ export default function StudentCoursesPage() {
                 <div className="app-prog-circle">
                   <FaYoutube className="w-8 h-8 text-[#FF0000]" />
                 </div>
-                <span className="text-xs font-semibold text-gray-300 mt-2.5">Video</span>
+                <span className="text-[11px] font-semibold text-gray-300 mt-1.5">Video</span>
               </div>
             </div>
 
             {/* Coming Soon Button */}
-            <div className="mt-4 flex justify-center pb-6">
+            <div className="mt-2 flex justify-center pb-1">
               <button
                 type="button"
                 onClick={handleNotify}
-                className="w-full max-w-sm py-3 px-8 rounded-full font-bold text-sm text-white bg-gradient-to-r from-[#e50914] via-[#cc0812] to-[#99040c] shadow-[0_4px_22px_rgba(229,9,20,0.5)] hover:shadow-[0_6px_28px_rgba(229,9,20,0.7)] active:scale-95 transition-all text-center"
+                className="w-full max-w-[220px] py-2.5 px-6 rounded-full font-bold text-sm text-white bg-gradient-to-r from-[#e50914] via-[#cc0812] to-[#99040c] shadow-[0_4px_22px_rgba(229,9,20,0.5)] hover:shadow-[0_6px_28px_rgba(229,9,20,0.7)] active:scale-95 transition-all text-center"
               >
                 {isNotified ? "✓ Notified on Launch" : "Coming Soon"}
               </button>

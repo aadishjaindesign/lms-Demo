@@ -1,6 +1,7 @@
 import AttendanceGeofence from "../models/AttendanceGeofence.js";
 
 const CACHE_TTL_MS = 30 * 1000;
+const MAX_ACCURACY_METERS = 200;
 let cached = null;
 let cachedAt = 0;
 
@@ -12,8 +13,8 @@ const toPublic = (doc) => ({
   updatedAt: doc?.updatedAt ?? null,
 });
 
-export const getGeofence = async () => {
-  if (cached && Date.now() - cachedAt < CACHE_TTL_MS) return cached;
+export const getGeofence = async ({ fresh = false } = {}) => {
+  if (!fresh && cached && Date.now() - cachedAt < CACHE_TTL_MS) return cached;
   const doc = await AttendanceGeofence.findOne({ key: "default" }).lean();
   cached = toPublic(doc);
   cachedAt = Date.now();
@@ -51,7 +52,8 @@ const isValidCoord = (lat, lon) =>
  * Returns { ok: true } or { ok: false, code, error, distance? }.
  */
 export const checkGeofence = async (body = {}) => {
-  const fence = await getGeofence();
+  // Always read the latest admin setting (no cache) so a changed/disabled radius applies instantly on every instance
+  const fence = await getGeofence({ fresh: true });
   if (!fence.enabled || !isValidCoord(fence.latitude, fence.longitude)) {
     return { ok: true, fence };
   }
@@ -63,6 +65,16 @@ export const checkGeofence = async (body = {}) => {
       ok: false,
       code: "LOCATION_REQUIRED",
       error: "Location is required to punch attendance. Please allow location access and try again.",
+    };
+  }
+
+  // Very imprecise fixes (Wi-Fi/IP based, usually desktops) cannot prove the student is inside the radius
+  const accuracy = Number(body.accuracy);
+  if (Number.isFinite(accuracy) && accuracy > MAX_ACCURACY_METERS) {
+    return {
+      ok: false,
+      code: "LOW_ACCURACY",
+      error: `Your location is not accurate enough (±${Math.round(accuracy)} m). Please turn on GPS / high-accuracy location and try again near the institute.`,
     };
   }
 

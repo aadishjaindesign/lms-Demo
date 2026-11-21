@@ -353,3 +353,26 @@ export const changePassword = async (req, res) => {
     res.status(500).json({ error: 'Failed to update password' });
   }
 };
+
+// Backfill the real video length (seconds) reported by the player, only when it is not stored yet.
+export const reportVideoDuration = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const { courseId, videoId } = req.params;
+    const duration = Math.round(Number(req.body?.duration));
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 24 * 3600) {
+      return res.status(400).json({ error: 'Invalid duration' });
+    }
+    const accessCheck = await hasCourseAccess(studentId, courseId);
+    if (!accessCheck.hasAccess) {
+      return res.status(403).json({ error: accessCheck.reason });
+    }
+    await Video.updateOne(
+      { _id: videoId, courseId, $or: [{ duration: { $exists: false } }, { duration: { $lte: 0 } }] },
+      { $set: { duration } }
+    );
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save duration' });
+  }
+};
