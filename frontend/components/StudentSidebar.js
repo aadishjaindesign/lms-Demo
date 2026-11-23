@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { LockIcon } from "@/components/DashboardIcons";
 import { useFreeAccessExpired } from "@/lib/useFreeAccess";
 import { fetchApi } from "@/lib/api";
+import { clearStudentCache } from "@/lib/studentCache";
 
 const FREE_ACCESS_DAYS = 60;
 
@@ -59,6 +60,7 @@ export default function StudentSidebar({ studentInfo }) {
       if (typeof window !== "undefined") {
         localStorage.removeItem("token");
         localStorage.removeItem("lms_student_info");
+        clearStudentCache();
         localStorage.removeItem("student_info");
       }
       await fetchApi("/auth/logout", { method: "POST" });

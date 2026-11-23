@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { fetchApi } from "@/lib/api";
+import { useIsoLayoutEffect, readStudentCache, writeStudentCache } from "@/lib/studentCache";
 import { HOLIDAYS as SHARED_HOLIDAYS } from "@/lib/attendanceStats";
 import { getPunchLocationPayload } from "@/lib/geolocation";
 import useHoldToConfirm from "@/lib/useHoldToConfirm";
@@ -148,6 +149,7 @@ export default function StudentAttendancePage() {
       if (res.ok) {
         const json = await res.json();
         setApiData(json);
+        writeStudentCache("attendance", json);
       }
     } catch (err) {
       console.warn("Could not load backend attendance:", err);
@@ -155,6 +157,15 @@ export default function StudentAttendancePage() {
       setLoading(false);
     }
   }, []);
+
+  // Paint the last known attendance before the first frame; the fetch below refreshes it
+  useIsoLayoutEffect(() => {
+    const cached = readStudentCache("attendance");
+    if (cached) setApiData((prev) => prev || cached);
+  }, []);
+
+  // First visit with nothing cached: don't show a fake "0% / all absent" month while loading
+  const dataPending = loading && !apiData;
 
   useEffect(() => {
     loadAttendance();
@@ -571,6 +582,27 @@ export default function StudentAttendancePage() {
         {/* ----------------------------------------------------------------------- */}
         {/* RIGHT CARD: % Scorecard & 75% Requirement (Real Month Attendance)         */}
         {/* ----------------------------------------------------------------------- */}
+        {dataPending ? (
+          <div className="card hero animate-pulse" aria-busy="true" aria-label="Loading attendance">
+            <div className="att-ring">
+              <svg viewBox="0 0 120 120">
+                <circle className="track" cx="60" cy="60" r={ringRadius} strokeWidth="10" fill="none" />
+              </svg>
+              <div className="ring-center">
+                <span className="block h-6 w-14 rounded-md bg-white/10" />
+              </div>
+            </div>
+            <div className="hero-txt">
+              <div className="h-5 w-40 rounded-full bg-white/10" />
+              <div className="h-6 w-48 rounded-md bg-white/10 mt-3" />
+              <div className="h-3.5 w-64 max-w-full rounded bg-white/[0.06] mt-3" />
+            </div>
+            <div className="req">
+              <div className="req-bar" />
+              <div className="h-10 w-full rounded-xl bg-white/[0.05] mt-6" />
+            </div>
+          </div>
+        ) : (
         <div className="card hero" style={{ "--c": overallSummary.isHealthy ? "var(--present)" : "var(--absent)" }}>
           {/* Radial Progress Ring */}
           <div className="att-ring">
@@ -638,6 +670,7 @@ export default function StudentAttendancePage() {
             </div>
           </div>
         </div>
+        )}
       </section>
 
       {/* ========================================================================= */}
@@ -676,12 +709,16 @@ export default function StudentAttendancePage() {
             </button>
             <div className="month-label">
               <b>{formattedMonthTitle}</b>
-              <small>
-                <em style={{ "--c": overallSummary.pct >= 75 ? "var(--present)" : "var(--absent)" }}>
-                  {overallSummary.pct}%
-                </em>{" "}
-                this month · {overallSummary.attended}/{overallSummary.conducted} classes
-              </small>
+              {dataPending ? (
+                <small>Loading…</small>
+              ) : (
+                <small>
+                  <em style={{ "--c": overallSummary.pct >= 75 ? "var(--present)" : "var(--absent)" }}>
+                    {overallSummary.pct}%
+                  </em>{" "}
+                  this month · {overallSummary.attended}/{overallSummary.conducted} classes
+                </small>
+              )}
             </div>
             <button type="button" className="nav-btn" onClick={() => shiftMonth(1)} title="Next Month">
               ›
@@ -691,7 +728,11 @@ export default function StudentAttendancePage() {
 
         {/* Tab 1: Calendar Grid View */}
         {activeTab === "calendar" && (
-          <div className="cal-body">
+          <div
+            className={`cal-body ${dataPending ? "animate-pulse" : ""}`}
+            style={dataPending ? { opacity: 0.35, pointerEvents: "none" } : undefined}
+            aria-busy={dataPending || undefined}
+          >
             <div>
               {/* Weekdays */}
               <div className="weekdays">
@@ -778,7 +819,10 @@ export default function StudentAttendancePage() {
 
         {/* Tab 2: Chronological Log Table View */}
         {activeTab === "log" && (
-          <ul className="log">
+          <ul
+            className={`log ${dataPending ? "animate-pulse" : ""}`}
+            style={dataPending ? { opacity: 0.35, pointerEvents: "none" } : undefined}
+          >
             {Array.from(recordsMap.values())
               .sort((a, b) => b.date.localeCompare(a.date))
               .map((r) => {

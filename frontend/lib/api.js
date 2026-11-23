@@ -1,10 +1,16 @@
-let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lmsoffline.jainscomputer.com/api';
+let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lms-demo-gtk4.onrender.com/api';
 
 if (typeof window !== 'undefined') {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  // Force the production backend URL if the app is hosted live but the env variable was baked as localhost
-  if (!isLocalhost && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
-    apiUrl = 'https://lmsoffline.jainscomputer.com/api';
+  const host = window.location.hostname;
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  // Phone/another device on the same Wi-Fi opening http://192.168.x.x:3000 —
+  // talk to the local backend on that same machine instead of production.
+  const isLanIp = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
+  if (isLanIp && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
+    apiUrl = `http://${host}:5000/api`;
+  } else if (!isLocalhost && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
+    // Force the production backend URL if the app is hosted live but the env variable was baked as localhost
+    apiUrl = 'https://lms-demo-gtk4.onrender.com/api';
   }
 }
 

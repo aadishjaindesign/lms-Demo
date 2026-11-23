@@ -3,6 +3,7 @@ import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import connectToDatabase from './config/database.js';
 import { assertRequiredSecrets } from './config/secrets.js';
@@ -51,7 +52,10 @@ const allowedOrigins = [
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl)
-    if (!origin || allowedOrigins.includes(origin)) {
+    // In local dev, also allow phones/laptops on the same Wi-Fi (http://192.168.x.x:3000 etc.)
+    const isLanDevOrigin = process.env.NODE_ENV !== 'production' &&
+      /^http:\/\/(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)[\d.]+(:\d+)?$/.test(origin || '');
+    if (!origin || allowedOrigins.includes(origin) || isLanDevOrigin) {
       callback(null, true);
     } else {
       console.warn(`[CORS] Rejected origin: ${origin}`);
@@ -85,6 +89,12 @@ app.get('/api/bridge/diagnostic', async (req, res) => {
 
 app.get('/', (req, res) => {
   res.send('LMS Backend API is running');
+});
+
+// Lightweight endpoint for keep-alive pings (Render free plan sleeps after 15 min idle)
+app.get('/api/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, db: mongoose.connection.readyState === 1, uptime: Math.round(process.uptime()) });
 });
 
 export { app };

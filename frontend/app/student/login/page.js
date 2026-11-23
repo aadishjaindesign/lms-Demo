@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { fetchApi } from "@/lib/api";
+import { clearStudentCache } from "@/lib/studentCache";
 
 export default function StudentLoginPage() {
   const [studentId, setStudentId] = useState("");
@@ -49,6 +50,7 @@ export default function StudentLoginPage() {
             localStorage.setItem("token", data.token);
           }
           localStorage.removeItem("lms_student_info");
+          clearStudentCache();
           localStorage.removeItem("student_info");
         } catch (e) {
           console.warn("localStorage not available", e);

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
 import { fetchApi } from "@/lib/api";
+import { useIsoLayoutEffect, readStudentCache, writeStudentCache } from "@/lib/studentCache";
 import DuesAlertBanner from "@/components/DuesAlertBanner";
 import { useVideoActive } from "@/lib/useVideoActive";
 import { LockIcon } from "@/components/DashboardIcons";
@@ -49,15 +50,28 @@ export default function StudentFeesPage() {
       .to(target, { scale: 1, duration: 0.25, ease: "back.out(2)" });
   };
 
+  // Paint the last known fee ledger before the first frame; the fetch below refreshes it
+  useIsoLayoutEffect(() => {
+    const cached = readStudentCache("fees");
+    if (cached) {
+      setFeeRecord(cached.feeRecord ?? null);
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    const hadCache = Boolean(readStudentCache("fees"));
     const fetchFees = async () => {
       try {
         const res = await fetchApi("/student/fees");
         if (!res.ok) throw new Error("Failed to load fee details");
         const json = await res.json();
         setFeeRecord(json.feeRecord);
+        setError("");
+        writeStudentCache("fees", { feeRecord: json.feeRecord ?? null });
       } catch (err) {
-        setError(err.message);
+        // Already showing the cached ledger: keep it instead of replacing the page with an error
+        if (!hadCache) setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -67,14 +81,24 @@ export default function StudentFeesPage() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[450px]">
-        <div className="relative w-14 h-14 mb-4">
-          <div className="absolute inset-0 rounded-full border-4 border-red-100"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-[#c71e22] border-t-transparent animate-spin"></div>
+      <div className="p-4 md:p-8 max-w-7xl mx-auto animate-pulse" aria-busy="true" aria-label="Loading fees">
+        <div className="h-7 w-48 rounded-lg bg-white/10 mb-6" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="h-3 w-24 rounded bg-white/10" />
+              <div className="h-7 w-32 rounded-md bg-white/10 mt-3" />
+            </div>
+          ))}
         </div>
-        <p className="text-gray-500 font-semibold text-sm">
-          Loading student accounts &amp; ERP payment ledger...
-        </p>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="flex items-center justify-between gap-4">
+              <div className="h-4 w-1/3 rounded bg-white/10" />
+              <div className="h-4 w-20 rounded bg-white/[0.06]" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

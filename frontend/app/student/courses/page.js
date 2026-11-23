@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  useIsoLayoutEffect,
+  readCachedStudent,
+  readStudentCache,
+  writeStudentCache,
+} from "@/lib/studentCache";
 import Link from "next/link";
 import { LockIcon } from "@/components/DashboardIcons";
 import { useFreeAccessExpired } from "@/lib/useFreeAccess";
@@ -17,16 +23,6 @@ import {
   CadIcon as SiAutodesk,
   ArrowRightIcon as HiArrowRight,
 } from "@/components/DashboardIcons";
-
-// Last known student profile (saved by the student layout) so the name/ID show instantly
-const readCachedStudent = () => {
-  try {
-    const raw = localStorage.getItem("lms_student_info");
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-};
 
 const LOCKED_PREVIEWS = [
   {
@@ -90,11 +86,21 @@ export default function StudentCoursesPage() {
     }, 4000);
   };
 
-  useEffect(() => {
-    // Show the cached profile immediately while fresh data loads
+  // Paint cached profile / courses / attendance before the first frame (no "Loading…" flash on revisit)
+  useIsoLayoutEffect(() => {
     const cachedStudent = readCachedStudent();
     if (cachedStudent) setDashboardData((prev) => prev || cachedStudent);
+    const cachedCourses = readStudentCache("courses");
+    if (Array.isArray(cachedCourses)) {
+      setCourses(cachedCourses);
+      setLoading(false);
+    }
+    const cachedAttendance = readStudentCache("attendance");
+    if (cachedAttendance) setAttendanceData(cachedAttendance);
+    setMounted(true);
+  }, []);
 
+  useEffect(() => {
     const readJson = async (result) => {
       if (result.status !== "fulfilled" || !result.value?.ok) return null;
       try {
@@ -119,9 +125,16 @@ export default function StudentCoursesPage() {
           readJson(attRes),
         ]);
 
-        if (coursesJson) setCourses(Array.isArray(coursesJson) ? coursesJson : []);
+        const freshCourses = coursesJson ? (Array.isArray(coursesJson) ? coursesJson : []) : null;
+        if (freshCourses) {
+          setCourses(freshCourses);
+          writeStudentCache("courses", freshCourses);
+        }
         if (dashJson) setDashboardData(dashJson);
-        if (attJson) setAttendanceData(attJson);
+        if (attJson) {
+          setAttendanceData(attJson);
+          writeStudentCache("attendance", attJson);
+        }
       } catch (err) {
         console.error("Failed to load student dashboard data", err);
       } finally {
@@ -130,7 +143,6 @@ export default function StudentCoursesPage() {
     };
 
     fetchData();
-    setMounted(true);
 
     // Check stored notify preference and watched lessons
     try {
@@ -281,9 +293,13 @@ export default function StudentCoursesPage() {
             <div className="min-w-[150px]">
               <span className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Attendance</span>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-extrabold text-white tabular-nums leading-none">
-                  {attendancePct === null ? "—" : `${attendancePct}%`}
-                </span>
+                {attendancePct === null ? (
+                  <span className="h-[30px] w-[72px] rounded-lg bg-white/10 animate-pulse" aria-label="Loading attendance" />
+                ) : (
+                  <span className="text-3xl font-extrabold text-white tabular-nums leading-none">
+                    {`${attendancePct}%`}
+                  </span>
+                )}
                 {attendancePct !== null && (
                   <span className={`pill ${attendancePct >= 75 ? "c-ok" : "c-bad"}`} style={{ height: "20px", fontSize: "11px", padding: "0 8px" }}>
                     {attendancePct >= 75 ? "Healthy" : "Needs Attention"}
@@ -296,10 +312,12 @@ export default function StudentCoursesPage() {
                   style={{ width: `${Math.min(100, Math.max(0, attendancePct ?? 0))}%` }}
                 />
               </div>
-              {attendanceStats && (
+              {attendanceStats ? (
                 <span className="block mt-1.5 text-[11px] text-gray-500">
                   {attendanceStats.attended}/{attendanceStats.conducted} days this month
                 </span>
+              ) : (
+                <span className="block mt-2 h-2.5 w-28 rounded bg-white/10 animate-pulse" />
               )}
             </div>
             <span className="w-11 h-11 shrink-0 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-gray-300 group-hover:bg-red-600 group-hover:border-red-500 group-hover:text-white transition-colors">
@@ -315,9 +333,11 @@ export default function StudentCoursesPage() {
           <div className="sec-head">
             <h2>
               Continue learning{" "}
-              <span className="count">
-                {courses.length} {courses.length === 1 ? "class" : "classes"}
-              </span>
+              {!loading && (
+                <span className="count">
+                  {courses.length} {courses.length === 1 ? "class" : "classes"}
+                </span>
+              )}
             </h2>
             <Link href="/student/courses/" className="link" onClick={playClickSound}>
               View all →
@@ -514,13 +534,17 @@ export default function StudentCoursesPage() {
           onClick={playClickSound}
           className="mb-4 flex items-center gap-3.5 rounded-2xl border border-white/10 bg-[#141112] px-4 py-3 active:scale-[0.99] transition-transform"
         >
-          <span
-            className={`shrink-0 text-[28px] font-extrabold leading-none tabular-nums ${
-              attendancePct === null ? "text-white" : attendancePct >= 75 ? "text-white" : "text-red-400"
-            }`}
-          >
-            {attendancePct === null ? "—" : `${attendancePct}%`}
-          </span>
+          {attendancePct === null ? (
+            <span className="shrink-0 h-7 w-[62px] rounded-lg bg-white/10 animate-pulse" aria-label="Loading attendance" />
+          ) : (
+            <span
+              className={`shrink-0 text-[28px] font-extrabold leading-none tabular-nums ${
+                attendancePct >= 75 ? "text-white" : "text-red-400"
+              }`}
+            >
+              {`${attendancePct}%`}
+            </span>
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 text-[11px]">
               <span className="font-semibold text-gray-300 truncate">Attendance · this month</span>
@@ -537,9 +561,15 @@ export default function StudentCoursesPage() {
               />
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2 text-[10.5px] text-gray-500">
-              <span className="truncate">{attendanceStats ? `${attendanceStats.attended} of ${attendanceStats.conducted} days` : "Loading…"}</span>
+              {attendanceStats ? (
+                <span className="truncate">{`${attendanceStats.attended} of ${attendanceStats.conducted} days`}</span>
+              ) : (
+                <span className="h-2.5 w-16 rounded bg-white/10 animate-pulse" />
+              )}
               <span className="shrink-0">
-                {isCheckedOut
+                {!attendanceData
+                  ? ""
+                  : isCheckedOut
                   ? "Done for today"
                   : isCheckedIn
                   ? `In since ${todayRecord?.checkIn || todayRecord?.in || "today"}`
@@ -565,7 +595,17 @@ export default function StudentCoursesPage() {
           <div className="flex gap-3.5 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory">
             {/* Active Assigned Courses */}
             {loading ? (
-              <div className="app-course-card !p-5 shrink-0 bg-white/5 border border-white/10 rounded-[24px] p-5 animate-pulse" />
+              // Skeletons shaped like the real cards (locked previews stay hidden until data arrives,
+              // so nothing jumps sideways when the real courses render)
+              [1, 2].map((n) => (
+                <div key={`sk-${n}`} className="app-course-card animate-pulse" aria-hidden="true">
+                  <div className="w-12 h-12 rounded-full bg-white/10" />
+                  <div>
+                    <div className="h-4 w-3/4 rounded bg-white/10" />
+                    <div className="h-3 w-1/2 rounded bg-white/[0.06] mt-2" />
+                  </div>
+                </div>
+              ))
             ) : courses.length > 0 ? (
               courses.map((course, idx) => (
                 <Link
@@ -611,7 +651,7 @@ export default function StudentCoursesPage() {
             )}
 
             {/* 2-3 Locked Preview Cards as requested */}
-            {LOCKED_PREVIEWS.map((item) => (
+            {!loading && LOCKED_PREVIEWS.map((item) => (
               <div key={item.id} className="app-locked-card" title="Locked Course - Available on next module">
                 {/* Top: Lock Icon Badge + Pill */}
                 <div className="flex items-center justify-between relative z-10">

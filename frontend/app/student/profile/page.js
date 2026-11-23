@@ -6,6 +6,13 @@ import { motion } from "framer-motion";
 import gsap from "gsap";
 import { fetchApi } from "@/lib/api";
 import { computeMonthAttendance } from "@/lib/attendanceStats";
+import {
+  useIsoLayoutEffect,
+  readCachedStudent,
+  readStudentCache,
+  writeStudentCache,
+  clearStudentCache,
+} from "@/lib/studentCache";
 import { useVideoActive } from "@/lib/useVideoActive";
 
 const containerVariants = {
@@ -37,6 +44,7 @@ export default function ProfilePage() {
     try {
       localStorage.removeItem("token");
       localStorage.removeItem("lms_student_info");
+      clearStudentCache();
       localStorage.removeItem("student_info");
       await fetchApi("/auth/logout", { method: "POST" });
     } catch (error) {
@@ -59,6 +67,24 @@ export default function ProfilePage() {
       .to(target, { scale: 1, duration: 0.25, ease: "back.out(2)" });
   };
 
+  // Paint the last known profile (saved by the layout) + attendance before the first frame
+  useIsoLayoutEffect(() => {
+    const cachedProfile = readCachedStudent();
+    if (cachedProfile) {
+      setData((prev) => prev || cachedProfile);
+      setLoading(false);
+    }
+    const cachedAtt = readStudentCache("attendance");
+    if (cachedAtt) {
+      setAttendanceStats(
+        computeMonthAttendance(
+          cachedAtt.records,
+          Boolean(cachedAtt.isCheckedInToday || cachedAtt.todayRecord?.checkIn)
+        )
+      );
+    }
+  }, []);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -72,6 +98,7 @@ export default function ProfilePage() {
         }
         if (attRes.status === "fulfilled" && attRes.value.ok) {
           const attJson = await attRes.value.json();
+          writeStudentCache("attendance", attJson);
           setAttendanceStats(
             computeMonthAttendance(
               attJson.records,
@@ -90,12 +117,22 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8 max-w-5xl mx-auto flex flex-col items-center justify-center min-h-[450px]">
-        <div className="relative w-14 h-14 mb-4">
-          <div className="absolute inset-0 rounded-full border-4 border-red-500/30"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-[#c71e22] border-t-transparent animate-spin"></div>
+      <div className="flex flex-col gap-6 max-w-5xl mx-auto px-3 sm:px-4 animate-pulse" aria-busy="true" aria-label="Loading profile">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-white/10 shrink-0" />
+          <div className="flex-1">
+            <div className="h-5 w-40 rounded-md bg-white/10" />
+            <div className="h-3.5 w-28 rounded bg-white/[0.06] mt-2.5" />
+          </div>
         </div>
-        <p className="text-gray-400 font-semibold text-sm">Loading student identity profile...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="h-3 w-24 rounded bg-white/10" />
+              <div className="h-5 w-36 rounded-md bg-white/10 mt-3" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

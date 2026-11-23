@@ -60,6 +60,7 @@ export const adminLogin = async (req, res) => {
     const token = generateTokenAndSetCookie(res, { role: 'admin', userId: admin._id, sessionId });
     res.status(200).json({ success: true, message: 'Admin logged in successfully', token });
   } catch (error) {
+    console.error('[ADMIN_LOGIN] failed:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -101,6 +102,10 @@ export const studentLogin = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Student logged in successfully', token });
   } catch (error) {
+    console.error('[STUDENT_LOGIN] failed:', error);
+    if (/Mongo(Network|ServerSelection|NotConnected)|buffering timed out/i.test(`${error?.name} ${error?.message}`)) {
+      return res.status(503).json({ error: 'Database temporarily unavailable. Please try again in a few seconds.' });
+    }
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };

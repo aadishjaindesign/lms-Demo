@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { fetchApi, API_URL } from "@/lib/api";
+import { useIsoLayoutEffect, readStudentCache, writeStudentCache } from "@/lib/studentCache";
 import dynamic from "next/dynamic";
 
 const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), { ssr: false });
@@ -25,6 +26,7 @@ function StudentCourseDetailsContent() {
   const [forceMp4, setForceMp4] = useState(false);
   const [urlLoading, setUrlLoading] = useState(false);
   const playerCardRef = useRef(null);
+  const autoPlayedForRef = useRef(null); // course id whose first video was already auto-started
 
   // Friendly duration formatter matching screenshots: "1h 46m", "34m"
   const formatDurationFriendly = (seconds) => {
@@ -137,13 +139,38 @@ function StudentCourseDetailsContent() {
     }
   };
 
-  useEffect(() => {
+  // Layout effect: the cached course is painted before the first frame (no spinner on revisit);
+  // the network fetch below then refreshes it in the background.
+  useIsoLayoutEffect(() => {
     let isMounted = true;
     let redirecting = false;
+
+    let activeIdForCache = courseId;
+    if (!activeIdForCache) {
+      try { activeIdForCache = localStorage.getItem("lms_last_course_id"); } catch (e) {}
+    }
+    const cached = activeIdForCache ? readStudentCache(`course_${activeIdForCache}`) : null;
+    const hasCache = Boolean(cached?.course);
+    if (hasCache) {
+      setError("");
+      setCourse(cached.course);
+      const cachedList = readStudentCache("courses");
+      if (Array.isArray(cachedList)) setCoursesList(cachedList);
+      const cachedVideos = Array.isArray(cached.videos) ? cached.videos : [];
+      setVideos(cachedVideos);
+      if (cachedVideos.length > 0 && autoPlayedForRef.current !== activeIdForCache) {
+        autoPlayedForRef.current = activeIdForCache;
+        handlePlayVideo(cachedVideos[0], false, activeIdForCache);
+      }
+      setLoading(false);
+    }
+
     const fetchCourseData = async () => {
       try {
-        setLoading(true);
-        setError("");
+        if (!hasCache) {
+          setLoading(true);
+          setError("");
+        }
 
         let activeId = courseId;
         if (!activeId && typeof window !== "undefined") {
@@ -165,6 +192,7 @@ function StudentCourseDetailsContent() {
             resolvedList = list;
             listLoaded = true;
             if (isMounted) setCoursesList(list);
+            writeStudentCache("courses", list);
           }
         }
 
@@ -239,13 +267,17 @@ function StudentCourseDetailsContent() {
         if (Array.isArray(videoData)) {
           if (isMounted) {
             setVideos(videoData);
-            if (videoData.length > 0) {
+            // Start the first video only once per course, so a background refresh never restarts playback
+            if (videoData.length > 0 && autoPlayedForRef.current !== activeId) {
+              autoPlayedForRef.current = activeId;
               handlePlayVideo(videoData[0], false, activeId);
             }
           }
+          writeStudentCache(`course_${activeId}`, { course: courseData, videos: videoData });
         }
       } catch (err) {
-        if (isMounted) setError(err.message || "Failed to load course.");
+        // Already showing the cached course: keep it instead of replacing it with an error screen
+        if (isMounted && !hasCache) setError(err.message || "Failed to load course.");
       } finally {
         if (isMounted && !redirecting) setLoading(false);
       }
@@ -278,9 +310,20 @@ function StudentCourseDetailsContent() {
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center">
-        <div className="w-10 h-10 border-2 border-red-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="text-white/60 text-sm font-medium">Loading classroom recordings...</p>
+      <div className="flex flex-col gap-4 animate-pulse" aria-busy="true" aria-label="Loading course">
+        <div className="h-6 w-56 rounded-lg bg-white/10" />
+        <div className="w-full aspect-video rounded-2xl bg-white/[0.06] border border-white/10" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <div className="w-24 h-14 rounded-xl bg-white/10 shrink-0" />
+              <div className="flex-1">
+                <div className="h-4 w-2/3 rounded bg-white/10" />
+                <div className="h-3 w-1/3 rounded bg-white/[0.06] mt-2" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
