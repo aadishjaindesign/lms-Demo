@@ -460,7 +460,7 @@ export default function StudentFeesPage() {
             >
               <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
                 <div className="flex items-center gap-2.5">
-                  <img src="/logo@2x.png" alt="Logo" className="h-7" />
+                  <img src="/logo-white@2x.png" alt="Logo" className="h-7" />
                   <span className="text-xs font-bold text-gray-400">Official Voucher</span>
                 </div>
                 <button

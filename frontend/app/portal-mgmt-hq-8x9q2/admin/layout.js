@@ -141,7 +141,7 @@ export default function AdminLayout({ children }) {
         {/* Logo Area */}
         <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Image src="/logo@2x.png" alt="Jains Computer" width={140} height={36} className="object-contain" priority />
+            <Image src="/logo-white@2x.png" alt="Jains Computer" width={140} height={36} className="object-contain" priority />
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, resolveCourseThumbnail } from "@/lib/api";
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState([]);
@@ -152,7 +152,7 @@ export default function AdminCoursesPage() {
                 {/* Visual Thumbnail Area */}
                 <div className="aspect-video w-full relative overflow-hidden flex flex-col justify-end bg-black/60 border-b border-white/10">
                   {course.thumbnail ? (
-                    <img src={course.thumbnail} alt={course.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={resolveCourseThumbnail(course.thumbnail)} alt={course.name} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     /* Decorative Elements */
                     <div className="absolute inset-0 flex items-center justify-center text-white/5">
@@ -263,7 +263,10 @@ function CourseModal({ course, onClose, onSuccess }) {
     setLoading(true);
     setError("");
     
-    const payload = { name, description, thumbnail, status };
+    const payload = { name, description, status };
+    // Only send the thumbnail when it changed; the list API gives a short image path
+    // for stored thumbnails and the backend keeps the original image.
+    if (!course || thumbnail !== (course.thumbnail || "")) payload.thumbnail = thumbnail;
     const url = course ? `/courses/${course._id}` : "/courses";
     const method = course ? "PATCH" : "POST";
 
@@ -357,7 +360,7 @@ function CourseModal({ course, onClose, onSuccess }) {
             
             {thumbnail && (
               <div className="mt-3 relative w-full aspect-video rounded-xl overflow-hidden border border-white/15">
-                <img src={thumbnail} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                <img src={resolveCourseThumbnail(thumbnail)} alt="Thumbnail preview" className="w-full h-full object-cover" />
                 <button 
                   type="button" 
                   onClick={() => setThumbnail("")} 

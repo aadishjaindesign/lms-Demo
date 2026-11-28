@@ -1,6 +1,6 @@
 import express from 'express';
 import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent } from '../controllers/studentController.js';
-import { getStudentCourseAccess, assignCourse, bulkAssignCourse, getCourseStudents, getCourseAssignedStudentIds, editCourseAccess, revokeCourseAccess, restoreCourseAccess, deleteCourseAccess } from '../controllers/courseAccessController.js';
+import { getStudentCourseAccess, assignCourse, bulkAssignCourse, getCourseStudents, getCourseAssignedStudentIds, editCourseAccess, revokeCourseAccess, restoreCourseAccess, deleteCourseAccess, removeStudentFromCourse, getCourseAttendance } from '../controllers/courseAccessController.js';
 import { verifyAdmin } from '../middleware/authMiddleware.js';
 import { verifyAdminGateway } from '../middleware/adminSecurityMiddleware.js';
 
@@ -14,6 +14,8 @@ router.route('/')
   .post(createStudent);
 
 router.get('/course-students/:courseId', getCourseStudents);
+router.delete('/course-students/:courseId/:studentId', removeStudentFromCourse);
+router.get('/course-attendance/:courseId', getCourseAttendance);
 router.post('/bulk-course-access', bulkAssignCourse);
 router.get('/course-access-ids/:courseId', getCourseAssignedStudentIds);
 

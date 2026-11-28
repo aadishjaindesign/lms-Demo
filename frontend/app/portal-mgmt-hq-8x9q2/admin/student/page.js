@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
+import { istDateKey, addYearsToDateKey } from "@/lib/istDate";
 import { Suspense } from "react";
 
 function StudentDetailsContent() {
@@ -277,17 +278,11 @@ function AssignCourseModal({ studentId, courses, access, assignedCourseIds = [],
       return next;
     });
   const [startDate, setStartDate] = useState(
-    access ? new Date(access.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    access ? istDateKey(access.startDate) : istDateKey()
   );
-  
-  const getDefaultExpiry = (start) => {
-    const d = new Date(start);
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().split('T')[0];
-  };
 
   const [expiryDate, setExpiryDate] = useState(
-    access ? new Date(access.expiryDate).toISOString().split('T')[0] : getDefaultExpiry(new Date())
+    access ? istDateKey(access.expiryDate) : addYearsToDateKey(istDateKey(), 1)
   );
   
   const [loading, setLoading] = useState(false);
@@ -412,7 +407,7 @@ function AssignCourseModal({ studentId, courses, access, assignedCourseIds = [],
               onChange={e => {
                 setStartDate(e.target.value);
                 if (new Date(e.target.value) >= new Date(expiryDate)) {
-                  setExpiryDate(getDefaultExpiry(e.target.value));
+                  setExpiryDate(addYearsToDateKey(e.target.value, 1));
                 }
               }}
               className="w-full bg-black/50 border border-white/15 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#D71D3A]/40 focus:outline-none text-sm text-white"

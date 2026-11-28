@@ -1,3 +1,7 @@
+import { istDateKey } from "./istDate";
+
+export { istDateKey };
+
 // Shared attendance calculation so the Home card and the Attendance page show the same %.
 
 export const ATTENDANCE_REQUIREMENT = 75; // % mandatory
@@ -15,10 +19,7 @@ const weekdayOf = (s) => {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 };
 
-export const localToday = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+export const localToday = () => istDateKey();
 
 /**
  * Current-month attendance %, same rules as the Attendance page ring:
@@ -32,7 +33,7 @@ export const computeMonthAttendance = (records = [], isCheckedInToday = false, t
   const statusByDay = new Map();
   for (const rec of Array.isArray(records) ? records : []) {
     if (!rec?.date) continue;
-    const dStr = new Date(rec.date).toISOString().slice(0, 10);
+    const dStr = istDateKey(rec.date);
     statusByDay.set(dStr, rec.status || "present");
   }
 

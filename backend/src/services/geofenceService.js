@@ -2,6 +2,7 @@ import AttendanceGeofence from "../models/AttendanceGeofence.js";
 
 const CACHE_TTL_MS = 30 * 1000;
 const MAX_ACCURACY_METERS = 200;
+const MAX_TOLERANCE_METERS = 150; // max extra allowance for GPS uncertainty
 let cached = null;
 let cachedAt = 0;
 
@@ -79,13 +80,18 @@ export const checkGeofence = async (body = {}) => {
   }
 
   const distance = Math.round(distanceMeters(lat, lon, fence.latitude, fence.longitude));
-  if (distance > fence.radiusMeters) {
+  // A fix with ±N m accuracy may really be up to N m closer, so give the benefit of that doubt
+  // (capped, so a vague fix can't stretch the fence too far).
+  const tolerance = Number.isFinite(accuracy) && accuracy > 0 ? Math.min(accuracy, MAX_TOLERANCE_METERS) : 0;
+  if (distance - tolerance > fence.radiusMeters) {
     return {
       ok: false,
       code: "OUTSIDE_GEOFENCE",
       distance,
       radiusMeters: fence.radiusMeters,
-      error: `You are ${distance} m away from the institute. Attendance can only be punched within ${fence.radiusMeters} m of the institute.`,
+      error: `You are ${distance} m away from the institute${
+        Number.isFinite(accuracy) ? ` (location accuracy ±${Math.round(accuracy)} m)` : ""
+      }. Attendance can only be punched within ${fence.radiusMeters} m of the institute.`,
     };
   }
 

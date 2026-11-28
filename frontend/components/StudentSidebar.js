@@ -228,22 +228,30 @@ export default function StudentSidebar({ studentInfo }) {
         <div className="flex items-center justify-between p-2 rounded-[8px] bg-white/5 border border-white/10">
           <Link href="/student/profile/" className="flex items-center gap-2.5 min-w-0 flex-1 group">
             <div
-              className="w-8 h-8 rounded-full bg-[#B33945] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm uppercase"
+              className={`w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm uppercase ${
+                mounted && currentStudent?.name ? "bg-[#B33945]" : "bg-white/10 animate-pulse"
+              }`}
               suppressHydrationWarning
             >
-              {mounted && currentStudent?.name ? currentStudent.name.charAt(0) : "S"}
+              {mounted && currentStudent?.name ? currentStudent.name.charAt(0) : null}
             </div>
             <div className="min-w-0 flex-1 text-left" suppressHydrationWarning>
               <div
                 className="text-xs font-bold text-white truncate group-hover:text-red-400 transition-colors"
                 suppressHydrationWarning
               >
-                {mounted && currentStudent?.name ? currentStudent.name : "Student"}
+                {mounted && currentStudent?.name ? (
+                  currentStudent.name
+                ) : (
+                  <span className="block h-3 w-24 my-0.5 rounded bg-white/10 animate-pulse" aria-hidden="true" />
+                )}
               </div>
               <div className="text-[10px] text-gray-400 truncate" suppressHydrationWarning>
-                {mounted && (currentStudent?.enrollmentNumber || currentStudent?.studentId)
-                  ? currentStudent.enrollmentNumber || currentStudent.studentId
-                  : "Learner"}
+                {mounted && (currentStudent?.enrollmentNumber || currentStudent?.studentId) ? (
+                  currentStudent.enrollmentNumber || currentStudent.studentId
+                ) : (
+                  <span className="block h-2.5 w-16 mt-1 rounded bg-white/[0.07] animate-pulse" aria-hidden="true" />
+                )}
               </div>
             </div>
           </Link>

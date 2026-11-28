@@ -11,6 +11,7 @@ import { processFeeSyncJob } from '../services/feeService.js';
 import { testErpBridgeConnection } from '../services/erp/httpAdapter.js';
 import { getCache, setCache, deleteUserCache } from '../services/redisCacheService.js';
 import { encryptPassword } from '../utils/passwordVault.js';
+import { publicThumbnail } from '../utils/courseThumbnail.js';
 
 export const getMyDashboard = async (req, res) => {
   try {
@@ -248,7 +249,7 @@ export const getMyCourses = async (req, res) => {
       _id: record.courseId._id,
       name: record.courseId.name,
       description: record.courseId.description,
-      thumbnail: record.courseId.thumbnail,
+      thumbnail: publicThumbnail(record.courseId),
       status: record.courseId.status,
       expiryDate: record.expiryDate,
       videoCount: 0

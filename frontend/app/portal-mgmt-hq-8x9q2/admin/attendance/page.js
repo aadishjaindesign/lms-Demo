@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchApi } from "@/lib/api";
 import AttendanceGeofenceSettings from "@/components/AttendanceGeofenceSettings";
+import { istDateKey } from "@/lib/attendanceStats";
 
 export default function AdminAttendancePage() {
   const [data, setData] = useState(null);
@@ -12,7 +13,7 @@ export default function AdminAttendancePage() {
   const [search, setSearch] = useState("");
   const [batch, setBatch] = useState("all");
   const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().slice(0, 10);
+    return istDateKey();
   });
   const [updatingId, setUpdatingId] = useState(null);
   const [notification, setNotification] = useState({ type: "", message: "" });
@@ -299,9 +300,9 @@ export default function AdminAttendancePage() {
         {/* Date Selector & Quick Pick */}
         <div className="flex items-center gap-2 bg-black/60 p-1.5 rounded-[8px] border border-white/10 shrink-0">
           <button
-            onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+            onClick={() => setSelectedDate(istDateKey())}
             className={`px-3 py-1.5 rounded-[8px] text-xs font-bold transition-all ${
-              selectedDate === new Date().toISOString().slice(0, 10)
+              selectedDate === istDateKey()
                 ? "bg-[#8D0E1F] text-white shadow-md border border-red-500/40"
                 : "text-gray-400 hover:text-white"
             }`}

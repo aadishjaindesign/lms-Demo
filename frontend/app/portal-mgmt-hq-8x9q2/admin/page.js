@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, resolveCourseThumbnail } from "@/lib/api";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
@@ -231,7 +231,7 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-3">
                     {course.thumbnail ? (
                       <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-white/5 border border-white/10">
-                        <img src={course.thumbnail} alt={course.name} className="w-full h-full object-cover" />
+                        <img src={resolveCourseThumbnail(course.thumbnail)} alt={course.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">

@@ -1,5 +1,5 @@
 import express from 'express';
-import { getCourses, getCourseById, createCourse, updateCourse, updateCourseStatus, deleteCourse } from '../controllers/courseController.js';
+import { getCourses, getCourseById, createCourse, updateCourse, updateCourseStatus, deleteCourse, getCourseThumbnail } from '../controllers/courseController.js';
 import { verifyAdmin } from '../middleware/authMiddleware.js';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../config/secrets.js';
@@ -41,6 +41,8 @@ router.route('/:id')
   .get(extractUser, getCourseById)
   .patch(verifyAdmin, updateCourse)
   .delete(verifyAdmin, deleteCourse);
+
+router.get('/:id/thumbnail', getCourseThumbnail);
 
 router.route('/:id/status')
   .patch(verifyAdmin, updateCourseStatus);

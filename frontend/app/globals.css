@@ -1555,6 +1555,57 @@ svg {
   background: var(--present);
 }
 
+.loc-wait,
+.loc-bad,
+.loc-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.loc-wait {
+  color: var(--fg-2);
+}
+
+.loc-bad {
+  color: var(--absent);
+}
+
+.loc-warn {
+  color: var(--late);
+}
+
+.loc-wait i,
+.loc-bad i,
+.loc-warn i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.loc-wait i {
+  animation: loc-pulse 1s ease-in-out infinite;
+}
+
+@keyframes loc-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.loc-retry {
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  font-weight: 700;
+  color: inherit;
+  background: transparent;
+}
+
 .times {
   display: grid;
   grid-template-columns: 1fr 1fr;

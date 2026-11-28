@@ -121,12 +121,12 @@ export default function StudentLayout({ children }) {
 
           <Link
             href="/student/profile/"
-            className="avatar"
+            className={`avatar ${mounted && studentName ? "" : "animate-pulse !bg-white/10"}`}
             style={{ width: "36px", height: "36px", fontSize: "13px" }}
             title={studentName || "Profile"}
             suppressHydrationWarning
           >
-            {mounted ? initials : "ST"}
+            {mounted && studentName ? initials : null}
           </Link>
         </header>
       )}

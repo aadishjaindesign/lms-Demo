@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { fetchApi, API_URL } from "@/lib/api";
+import { istDateKey, addYearsToDateKey } from "@/lib/istDate";
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), { ssr: false });
@@ -184,6 +185,8 @@ function CourseDetailsContent() {
       {assignNotice && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-semibold px-4 py-3 rounded-xl">{assignNotice}</div>
       )}
+
+      <CourseAttendancePanel courseId={id} />
 
       {/* Videos List */}
       <div className="bg-[#1C1C1E]/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-5 sm:p-6 flex-1">
@@ -854,17 +857,16 @@ function EditVideoModal({ video, onClose, onSuccess }) {
 
 
 function AssignStudentsModal({ courseId, courseName, onClose, onSuccess }) {
-  const toInput = (d) => d.toISOString().slice(0, 10);
-  const today = new Date();
-  const nextYear = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000);
+  const today = istDateKey();
+  const nextYear = addYearsToDateKey(today, 1);
 
   const [students, setStudents] = useState([]);
   const [alreadyIds, setAlreadyIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(new Set());
-  const [startDate, setStartDate] = useState(toInput(today));
-  const [expiryDate, setExpiryDate] = useState(toInput(nextYear));
+  const [startDate, setStartDate] = useState(today);
+  const [expiryDate, setExpiryDate] = useState(nextYear);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -1001,11 +1003,149 @@ function AssignStudentsModal({ courseId, courseName, onClose, onSuccess }) {
 }
 
 
+const todayIST = () => {
+  // en-CA gives YYYY-MM-DD
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+};
+
+function CourseAttendancePanel({ courseId }) {
+  const [date, setDate] = useState(todayIST());
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState("notMarked");
+
+  useEffect(() => {
+    if (!courseId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetchApi(`/students/course-attendance/${courseId}?date=${date}`);
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || body.message || `Failed to load attendance (HTTP ${res.status})`);
+        if (!cancelled) setData(body);
+      } catch (e) {
+        if (!cancelled) { setError(e.message); setData(null); }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [courseId, date]);
+
+  const total = data?.total || 0;
+  const markedCount = data?.markedCount || 0;
+  const pct = total ? Math.round((markedCount / total) * 100) : 0;
+  const rows = data ? (tab === "marked" ? data.marked : data.notMarked) : [];
+  const statusCls = {
+    present: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+    late: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+    holiday: "text-sky-400 border-sky-500/30 bg-sky-500/10",
+  };
+
+  return (
+    <div className="bg-[#1C1C1E]/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-5 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <h2 className="text-lg font-bold text-white">Attendance</h2>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={date}
+            max={todayIST()}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [color-scheme:dark]"
+          />
+          {date !== todayIST() && (
+            <button onClick={() => setDate(todayIST())} className="text-xs font-semibold text-gray-300 hover:text-white px-3 py-2 rounded-xl bg-white/5 border border-white/10">Today</button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Loading attendance...</p>
+      ) : error ? (
+        <p className="text-sm text-red-400 font-semibold">{error}</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-xl bg-black/30 border border-white/10 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Total students</p>
+              <p className="text-2xl font-extrabold mt-0.5">{total}</p>
+            </div>
+            <button onClick={() => setTab("marked")} className={`text-left rounded-xl px-4 py-3 border transition-colors ${tab === "marked" ? "bg-emerald-500/10 border-emerald-500/40" : "bg-black/30 border-white/10 hover:border-emerald-500/30"}`}>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Marked</p>
+              <p className="text-2xl font-extrabold mt-0.5">{markedCount} <span className="text-sm font-semibold text-gray-400">({pct}%)</span></p>
+            </button>
+            <button onClick={() => setTab("notMarked")} className={`text-left rounded-xl px-4 py-3 border transition-colors ${tab === "notMarked" ? "bg-red-500/10 border-red-500/40" : "bg-black/30 border-white/10 hover:border-red-500/30"}`}>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-red-400">Not marked</p>
+              <p className="text-2xl font-extrabold mt-0.5">{data?.notMarkedCount || 0}</p>
+            </button>
+          </div>
+
+          <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-4">
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+
+          {total === 0 ? (
+            <p className="text-sm text-gray-400">No active students are assigned to this course.</p>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-gray-400">{tab === "marked" ? "No one has marked attendance yet for this day." : "Everyone has marked attendance for this day."}</p>
+          ) : (
+            <div className="border border-white/10 rounded-xl divide-y divide-white/5 max-h-80 overflow-y-auto">
+              {rows.map((s, i) => (
+                <div key={s._id} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="text-xs text-gray-500 w-5 text-right">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">{s.name}</p>
+                    <p className="text-[11px] text-gray-400">{s.studentId} · {s.phone}</p>
+                  </div>
+                  {tab === "marked" ? (
+                    <div className="text-right">
+                      <span className={`text-[10px] font-bold uppercase border rounded-full px-2 py-0.5 ${statusCls[s.status] || statusCls.present}`}>{s.status}</span>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        In {s.checkIn || "—"}{s.checkOut ? ` · Out ${s.checkOut}` : ""}
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase border rounded-full px-2 py-0.5 text-red-400 border-red-500/30 bg-red-500/10">{s.status === "absent" ? "Absent" : "Not marked"}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function CourseStudentsModal({ courseId, courseName, onClose }) {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [removingId, setRemovingId] = useState(null);
+
+  const handleRemove = async (s) => {
+    if (!window.confirm(`Remove ${s.name} from ${courseName}? They will lose access to this course.`)) return;
+    setError("");
+    setRemovingId(s._id);
+    try {
+      const res = await fetchApi(`/students/course-students/${courseId}/${s._id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // 404 without a JSON error = the live backend doesn't have this route yet (needs redeploy)
+        throw new Error(data.error || data.message || `Failed to remove student (HTTP ${res.status})`);
+      }
+      setList((prev) => prev.filter((x) => String(x._id) !== String(s._id)));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -1060,6 +1200,14 @@ function CourseStudentsModal({ courseId, courseName, onClose }) {
                     <p className="text-[11px] text-gray-500">{s.startDate && s.expiryDate ? `${fmt(s.startDate)} → ${fmt(s.expiryDate)}` : "No expiry set"}</p>
                   </div>
                   <span className={`text-[10px] font-bold uppercase border rounded-full px-2 py-0.5 ${badge[s.accessStatus]}`}>{s.accessStatus}</span>
+                  <button
+                    onClick={() => handleRemove(s)}
+                    disabled={removingId === s._id}
+                    title="Remove from course"
+                    className="text-[11px] font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 disabled:opacity-50 rounded-lg px-2.5 py-1"
+                  >
+                    {removingId === s._id ? "Removing..." : "Remove"}
+                  </button>
                 </div>
               ))
             )}

@@ -180,7 +180,7 @@ export default function StudentCoursesPage() {
   };
 
   // Student details from real backend
-  const fullName = dashboardData?.name || "Student";
+  const fullName = dashboardData?.name || "";
   const firstName = fullName.split(" ")[0];
   const initials =
     fullName
@@ -191,15 +191,20 @@ export default function StudentCoursesPage() {
       .toUpperCase()
       .slice(0, 2) || "ST";
   const studentId =
-    dashboardData?.enrollmentNumber || dashboardData?.studentId || "STU-JC001";
+    dashboardData?.enrollmentNumber || dashboardData?.studentId || "";
   const isEnrolled = dashboardData?.status === "active";
   const avatarUrl = dashboardData?.avatar || null;
 
   // Hydration-safe displays
-  const initialsDisplay = mounted ? initials : "ST";
-  const firstNameDisplay = mounted ? firstName : "Student";
-  const studentIdDisplay = mounted ? studentId : "STU-JC001";
-  const isEnrolledDisplay = mounted ? isEnrolled : true;
+  // Until the real student is known, show skeleton bars instead of placeholder names/IDs
+  const hasStudent = mounted && Boolean(dashboardData?.name);
+  const sk = (w, h = "h-[1em]") => (
+    <span className={`inline-block align-middle ${w} ${h} rounded-md bg-white/10 animate-pulse`} aria-hidden="true" />
+  );
+  const initialsDisplay = hasStudent ? initials : null;
+  const firstNameDisplay = hasStudent ? firstName : sk("w-24");
+  const studentIdDisplay = hasStudent ? studentId : sk("w-20", "h-3");
+  const isEnrolledDisplay = hasStudent ? isEnrolled : true;
 
   // Fee Alert Data
   const feeAlert = dashboardData?.feeAlert;
@@ -270,12 +275,16 @@ export default function StudentCoursesPage() {
         {/* Top Welcome Card (Desktop - Matches reference screenshots with Attendance Punch Action) */}
         <section className="card welcome">
           <div className="who">
-            <div className="avatar" suppressHydrationWarning>{initialsDisplay}</div>
+            <div className={`avatar ${hasStudent ? "" : "animate-pulse !bg-white/10"}`} suppressHydrationWarning>{initialsDisplay}</div>
             <div>
               <div className="who-meta">
-                <span className={`pill ${isEnrolledDisplay ? "c-ok" : "c-bad"}`} suppressHydrationWarning>
-                  {isEnrolledDisplay ? "Enrolled" : "Inactive"}
-                </span>
+                {hasStudent ? (
+                  <span className={`pill ${isEnrolledDisplay ? "c-ok" : "c-bad"}`} suppressHydrationWarning>
+                    {isEnrolledDisplay ? "Enrolled" : "Inactive"}
+                  </span>
+                ) : (
+                  sk("w-16", "h-5")
+                )}
                 <span className="id" suppressHydrationWarning>{studentIdDisplay}</span>
               </div>
               <h1 suppressHydrationWarning>Hello, {firstNameDisplay} 👋</h1>
@@ -484,7 +493,7 @@ export default function StudentCoursesPage() {
         <div className="flex items-center justify-between pb-2">
           {/* Left: 100% Circular Avatar */}
           <Link href="/student/profile/" onClick={playClickSound} className="relative block group">
-            <div className="app-avatar" suppressHydrationWarning>
+            <div className={`app-avatar ${hasStudent ? "" : "animate-pulse !bg-white/10"}`} suppressHydrationWarning>
               {avatarUrl ? (
                 <img src={avatarUrl} alt={fullName} className="w-full h-full object-cover rounded-full" />
               ) : (

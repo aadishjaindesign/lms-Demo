@@ -14,6 +14,8 @@ export default function PunchStation({
   dateLabel,
   clock,
   campus,
+  campusStatus,
+  onRecheckCampus,
   todayRecord,
   isCheckedIn,
   isCheckedOut,
@@ -92,23 +94,27 @@ export default function PunchStation({
           <div className="pbtn-core">
             {/* Fingerprint Biometric SVG Icon */}
             <svg
-              className="w-11 h-11"
-              viewBox="0 0 24 24"
+              className="w-12 h-12"
+              viewBox="0 0 48 48"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
-              <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
-              <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
-              <path d="M2 16h.01" />
-              <path d="M21.8 16c.2-2 .131-5.354 0-6" />
-              <path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2" />
-              <path d="M4 10.95C4.24 6.8 7.37 4 12 4c4.63 0 7.76 2.8 8 6.95" />
-              <path d="M8 12a4 4 0 0 1 8 0c0 1.84.1 4.22.4 6" />
-              <path d="M18 20c-.5 1-1.5 2-2.8 2" />
-              <path d="M6 18c0 .5 0 1 .2 1.5" />
+              {/* Loop-pattern ridges: core hook + nested arches with natural breaks */}
+              <g transform="translate(-0.5 4)">
+                <path d="M22.1 27.5V21.5A1.9 2.09 0 0 1 25.9 21.5V24" />
+                <path d="M28.4 29.5Q28.7 25.5 28.7 21.5A4.7 5.17 0 0 0 19.3 21.5Q19.3 26.75 19.6 32" />
+                <path d="M30.9 34.5Q31.5 28 31.5 21.5A7.5 8.25 0 0 0 26.57 13.75" />
+                <path d="M24.26 13.26A7.5 8.25 0 0 0 16.5 21.5Q16.5 28.75 16.3 36" />
+                <path d="M35.17 31.79Q34.27 27.04 34.27 22.29A10.3 11.33 0 1 0 13.7 21.5Q13.7 28 12.8 34.5" />
+                <path d="M36.97 23.51A13.1 14.41 0 0 0 17.85 8.78" />
+                <path d="M14.9 11.13A13.1 14.41 0 0 0 10.91 22Q10.91 26 9.51 30" />
+                <path d="M38.74 14.95A15.9 17.49 0 0 0 9.26 14.95" />
+                <path d="M39.6 24.5Q39.9 20.5 39.2 16.9" />
+              </g>
             </svg>
 
             <b>
@@ -139,10 +145,7 @@ export default function PunchStation({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         <b>{campus}</b>
-        <span className="loc-ok">
-          <i />
-          On campus
-        </span>
+        <CampusStatus status={campusStatus} onRecheck={onRecheckCampus} />
       </div>
 
       {/* Check In / Check Out Boxes */}
@@ -232,5 +235,33 @@ export default function PunchStation({
         </button>
       </div>
     </div>
+  );
+}
+
+// Real location status under the punch button (same rule the backend applies on punch)
+function CampusStatus({ status, onRecheck }) {
+  const st = status?.state || "checking";
+  if (st === "disabled" || st === "unknown") return null; // no location restriction set by admin
+
+  const fmt = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
+  const view = {
+    checking: { cls: "loc-wait", text: "Checking location…" },
+    on: { cls: "loc-ok", text: "On campus" },
+    off: { cls: "loc-bad", text: `Outside campus · ${fmt(status.distance)} away` },
+    low: { cls: "loc-warn", text: `Weak location (±${fmt(status.accuracy)}) · turn on GPS` },
+    error: { cls: "loc-bad", text: status.message?.toLowerCase().includes("denied") ? "Location blocked" : "Location unavailable" },
+  }[st] || { cls: "loc-wait", text: "Checking location…" };
+
+  const canRetry = st !== "checking" && st !== "on";
+  return (
+    <span className={view.cls} title={status?.message || (canRetry ? "Tap to check again" : undefined)}>
+      <i />
+      {view.text}
+      {canRetry && onRecheck && (
+        <button type="button" onClick={onRecheck} className="loc-retry">
+          Retry
+        </button>
+      )}
+    </span>
   );
 }

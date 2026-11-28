@@ -1,3 +1,8 @@
+// The institute runs on India time. Production servers default to UTC, which made a
+// 12:30 PM punch get saved as "07:00 AM" and shifted "today" boundaries by 5h30m.
+// Force IST for every Date in this process (this module is the first import in server.js).
+process.env.TZ = process.env.APP_TIMEZONE || "Asia/Kolkata";
+
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";

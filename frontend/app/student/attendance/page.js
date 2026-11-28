@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { fetchApi } from "@/lib/api";
 import { useIsoLayoutEffect, readStudentCache, writeStudentCache } from "@/lib/studentCache";
-import { HOLIDAYS as SHARED_HOLIDAYS } from "@/lib/attendanceStats";
-import { getPunchLocationPayload } from "@/lib/geolocation";
+import { HOLIDAYS as SHARED_HOLIDAYS, istDateKey } from "@/lib/attendanceStats";
+import { getPunchLocationPayload, getCampusStatus } from "@/lib/geolocation";
 import useHoldToConfirm from "@/lib/useHoldToConfirm";
 import PunchStation from "@/components/attendance/PunchStation";
 
@@ -77,14 +77,8 @@ const durationCalc = (startStr, endStr) => {
 const HOLD_TO_PUNCH_MS = 3000;
 
 export default function StudentAttendancePage() {
-  // Live dynamic TODAY string in local format (YYYY-MM-DD)
-  const TODAY = useMemo(() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }, []);
+  // Live dynamic TODAY string in Indian Standard Time (YYYY-MM-DD)
+  const TODAY = useMemo(() => istDateKey(new Date()), []);
 
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -105,27 +99,31 @@ export default function StudentAttendancePage() {
 
   const toastTimeoutRef = useRef(null);
 
-  // Live ticking clock (ticks every 1000ms)
+  // Live ticking clock in Indian Standard Time (ticks every 1000ms)
   useEffect(() => {
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+    const dateFmt = new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
     const updateClock = () => {
       const now = new Date();
-      let hr = now.getHours();
-      const mn = String(now.getMinutes()).padStart(2, "0");
-      const sc = String(now.getSeconds()).padStart(2, "0");
-      const ap = hr >= 12 ? "PM" : "AM";
-      hr = hr % 12 || 12;
-      const formattedLong = new Intl.DateTimeFormat("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }).format(now);
-
+      const parts = Object.fromEntries(timeFmt.formatToParts(now).map((p) => [p.type, p.value]));
       setClockState({
-        hoursMinutes: `${String(hr).padStart(2, "0")}:${mn}`,
-        seconds: sc,
-        ampm: ap,
-        formattedLong,
+        hoursMinutes: `${parts.hour || "12"}:${parts.minute || "00"}`,
+        seconds: parts.second || "00",
+        ampm: (parts.dayPeriod || "PM").toUpperCase(),
+        formattedLong: dateFmt.format(now),
       });
     };
 
@@ -171,6 +169,29 @@ export default function StudentAttendancePage() {
     loadAttendance();
   }, [loadAttendance]);
 
+  // Live campus status for the location chip (re-checked when the student returns to the tab)
+  const [campusStatus, setCampusStatus] = useState({ state: "checking" });
+  const checkingCampusRef = useRef(false);
+  const refreshCampusStatus = useCallback(async () => {
+    if (checkingCampusRef.current) return;
+    checkingCampusRef.current = true;
+    setCampusStatus({ state: "checking" });
+    try {
+      setCampusStatus(await getCampusStatus(fetchApi));
+    } finally {
+      checkingCampusRef.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshCampusStatus();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshCampusStatus();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshCampusStatus]);
+
   // Construct Records Map Purely From Real Database Attendance
   // NO FAKE OR SYNTHETIC DUMMY DATA.
   const recordsMap = useMemo(() => {
@@ -197,7 +218,7 @@ export default function StudentAttendancePage() {
     if (apiData?.records && Array.isArray(apiData.records)) {
       apiData.records.forEach((rec) => {
         if (!rec.date) return;
-        const dStr = new Date(rec.date).toISOString().slice(0, 10);
+        const dStr = istDateKey(rec.date);
         map.set(dStr, {
           date: dStr,
           status: rec.status === "late" ? "present" : rec.status || "present",
@@ -397,7 +418,8 @@ export default function StudentAttendancePage() {
     // Institute location check: the backend only accepts punches within the admin-set radius
     let loc = {};
     try {
-      loc = await getPunchLocationPayload(fetchApi);
+      showToast("📍 Checking your location… please wait a few seconds.");
+      loc = await getPunchLocationPayload(fetchApi, setCampusStatus);
     } catch (locErr) {
       showToast(`📍 ${locErr.message}`);
       setPunchLoading(false);
@@ -571,6 +593,8 @@ export default function StudentAttendancePage() {
           dateLabel={clockState.formattedLong ? clockState.formattedLong.toUpperCase() : fLongUpper(TODAY)}
           clock={clockState}
           campus={CONFIG.campus}
+          campusStatus={campusStatus}
+          onRecheckCampus={refreshCampusStatus}
           todayRecord={todayRecord}
           isCheckedIn={isCheckedIn}
           isCheckedOut={isCheckedOut}

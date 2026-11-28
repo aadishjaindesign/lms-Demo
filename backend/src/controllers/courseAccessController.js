@@ -1,7 +1,9 @@
 import CourseAccess from '../models/CourseAccess.js';
 import Course from '../models/Course.js';
 import Student from '../models/Student.js';
+import Attendance from '../models/Attendance.js';
 import { invalidateCourseAccessCache } from '../services/courseAccessService.js';
+import { endOfIstDay } from '../utils/istDate.js';
 
 export const getStudentCourseAccess = async (req, res) => {
   try {
@@ -124,7 +126,7 @@ export const restoreCourseAccess = async (req, res) => {
       return res.status(400).json({ error: 'Cannot restore access: Course is currently inactive' });
     }
     
-    if (new Date() > new Date(access.expiryDate)) {
+    if (new Date() > endOfIstDay(access.expiryDate)) {
        return res.status(400).json({ error: 'Cannot restore access: Expiry date has passed. Please extend first.' });
     }
 
@@ -224,46 +226,124 @@ export const getCourseAssignedStudentIds = async (req, res) => {
   }
 };
 
+// Every student linked to a course: CourseAccess records + legacy Student.assignedCourses links
+const loadCourseRoster = async (courseId) => {
+  const [records, legacyStudents] = await Promise.all([
+    CourseAccess.find({ courseId })
+      .populate('studentId', 'name phone studentId status')
+      .sort({ createdAt: -1 })
+      .lean(),
+    // Older students were linked only via Student.assignedCourses (no CourseAccess record)
+    Student.find({ assignedCourses: String(courseId) }).select('name phone studentId status').lean(),
+  ]);
+  const now = new Date();
+  const withAccess = new Set(records.filter((r) => r.studentId).map((r) => r.studentId._id.toString()));
+  const legacy = legacyStudents
+    .filter((s) => !withAccess.has(s._id.toString()))
+    .map((s) => ({
+      accessId: `legacy-${s._id}`,
+      _id: s._id,
+      name: s.name,
+      phone: s.phone,
+      studentId: s.studentId,
+      startDate: null,
+      expiryDate: null,
+      accessStatus: 'active',
+    }));
+  const list = records
+    .filter((r) => r.studentId)
+    .map((r) => ({
+      accessId: r._id,
+      _id: r.studentId._id,
+      name: r.studentId.name,
+      phone: r.studentId.phone,
+      studentId: r.studentId.studentId,
+      startDate: r.startDate,
+      expiryDate: r.expiryDate,
+      accessStatus: r.status === 'revoked' ? 'revoked' : endOfIstDay(r.expiryDate) < now ? 'expired' : 'active',
+    }));
+  return [...list, ...legacy];
+};
+
 // Students enrolled in a course, with their access dates/status (for the teacher's roster view)
 export const getCourseStudents = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const [records, legacyStudents] = await Promise.all([
-      CourseAccess.find({ courseId })
-        .populate('studentId', 'name phone studentId status')
-        .sort({ createdAt: -1 })
-        .lean(),
-      // Older students were linked only via Student.assignedCourses (no CourseAccess record)
-      Student.find({ assignedCourses: String(courseId) }).select('name phone studentId status').lean(),
-    ]);
-    const now = new Date();
-    const withAccess = new Set(records.filter((r) => r.studentId).map((r) => r.studentId._id.toString()));
-    const legacy = legacyStudents
-      .filter((s) => !withAccess.has(s._id.toString()))
-      .map((s) => ({
-        accessId: `legacy-${s._id}`,
-        _id: s._id,
-        name: s.name,
-        phone: s.phone,
-        studentId: s.studentId,
-        startDate: null,
-        expiryDate: null,
-        accessStatus: 'active',
-      }));
-    const list = records
-      .filter((r) => r.studentId)
-      .map((r) => ({
-        accessId: r._id,
-        _id: r.studentId._id,
-        name: r.studentId.name,
-        phone: r.studentId.phone,
-        studentId: r.studentId.studentId,
-        startDate: r.startDate,
-        expiryDate: r.expiryDate,
-        accessStatus: r.status === 'revoked' ? 'revoked' : new Date(r.expiryDate) < now ? 'expired' : 'active',
-      }));
-    res.status(200).json([...list, ...legacy]);
+    res.status(200).json(await loadCourseRoster(courseId));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch course students' });
+  }
+};
+
+// Remove a student from a course entirely (CourseAccess records + legacy assignedCourses link)
+export const removeStudentFromCourse = async (req, res) => {
+  try {
+    const { courseId, studentId } = req.params;
+    const [del, upd] = await Promise.all([
+      CourseAccess.deleteMany({ courseId, studentId }),
+      Student.updateOne({ _id: studentId }, { $pull: { assignedCourses: String(courseId) } }),
+    ]);
+    if (!del.deletedCount && !upd.modifiedCount) {
+      return res.status(404).json({ error: 'Student is not assigned to this course' });
+    }
+    invalidateCourseAccessCache(studentId, courseId);
+    res.status(200).json({ success: true, message: 'Student removed from course' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to remove student from course' });
+  }
+};
+
+// Admin: who among this course's students marked attendance on a given day (IST)
+export const getCourseAttendance = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { date } = req.query;
+    let y, m, d;
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      [y, m, d] = date.split('-').map(Number);
+      m -= 1;
+    } else {
+      const now = new Date();
+      [y, m, d] = [now.getFullYear(), now.getMonth(), now.getDate()];
+    }
+    const startOfDay = new Date(y, m, d);
+    const endOfDay = new Date(y, m, d, 23, 59, 59, 999);
+
+    // Only students whose access is live count toward the class strength
+    const roster = (await loadCourseRoster(courseId)).filter((s) => s.accessStatus === 'active');
+    const records = await Attendance.find({
+      studentId: { $in: roster.map((s) => s._id) },
+      date: { $gte: startOfDay, $lte: endOfDay },
+    })
+      .select('studentId status checkIn checkOut duration')
+      .lean();
+    const byStudent = new Map(records.map((r) => [r.studentId.toString(), r]));
+
+    const marked = [];
+    const notMarked = [];
+    for (const s of roster) {
+      const base = { _id: s._id, name: s.name, phone: s.phone, studentId: s.studentId };
+      const r = byStudent.get(s._id.toString());
+      // An "absent" record set by admin is not a punch — treat as not marked
+      if (r && r.status !== 'absent') {
+        marked.push({ ...base, status: r.status, checkIn: r.checkIn, checkOut: r.checkOut, duration: r.duration });
+      } else {
+        notMarked.push({ ...base, status: r ? r.status : null });
+      }
+    }
+    marked.sort((a, b) => String(a.checkIn || '').localeCompare(String(b.checkIn || '')));
+    notMarked.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+    const pad = (n) => String(n).padStart(2, '0');
+    res.status(200).json({
+      date: `${y}-${pad(m + 1)}-${pad(d)}`,
+      total: roster.length,
+      markedCount: marked.length,
+      notMarkedCount: notMarked.length,
+      marked,
+      notMarked,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch course attendance' });
   }
 };

@@ -137,8 +137,8 @@ export default function ProfilePage() {
     );
   }
 
-  const studentName = data?.name || "Akhil Yadav";
-  const studentId = data?.enrollmentNumber || data?.studentId || "RJ/2026/7002";
+  const studentName = data?.name || "—";
+  const studentId = data?.enrollmentNumber || data?.studentId || "—";
   const feeAlert = data?.feeAlert || { hasDue: false, dueAmount: 0 };
 
   return (
@@ -217,14 +217,14 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between p-3.5 bg-black/40 rounded-[8px] border border-white/5">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">LMS Student ID</span>
                 <span className="text-xs sm:text-sm font-extrabold text-rose-400">
-                  {data?.studentId || "STU-JC2026-0042"}
+                  {data?.studentId || "—"}
                 </span>
               </div>
 
               <div className="flex items-center justify-between p-3.5 bg-black/40 rounded-[8px] border border-white/5">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Registered Phone</span>
                 <span className="text-xs sm:text-sm font-semibold text-gray-200">
-                  {data?.phone || "+91-9893077717"}
+                  {data?.phone || "—"}
                 </span>
               </div>
             </div>

@@ -83,7 +83,7 @@ export default function StudentLoginPage() {
         {/* Top Header Card */}
         <div className="p-8 text-center bg-black/40 border-b border-white/10 relative">
           <div className="flex items-center justify-center mb-4">
-            <img src="/logo@2x.png" alt="Logo" className="h-10 sm:h-12 object-contain" />
+            <img src="/logo-white@2x.png" alt="Logo" className="h-10 sm:h-12 object-contain" />
           </div>
           <span className="text-[11px] font-black uppercase tracking-wider text-white bg-[#8D0E1F] px-3 py-1 rounded-[8px] border border-red-500/30 inline-block mb-2">
             Student Learning Portal

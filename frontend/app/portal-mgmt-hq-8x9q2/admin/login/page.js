@@ -49,7 +49,7 @@ export default function LoginPage() {
     >
       <div className="bg-[#1C1C1E]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="p-8 text-center bg-black/40 border-b border-white/10">
-          <img src="/logo@2x.png" alt="Jains Computer" className="h-10 mx-auto mb-4 object-contain" />
+          <img src="/logo-white@2x.png" alt="Jains Computer" className="h-10 mx-auto mb-4 object-contain" />
           <h2 className="text-2xl font-extrabold text-white tracking-tight">Admin Gateway</h2>
           <p className="text-gray-400 text-xs mt-1.5 font-medium">LMS Management & Core Administration</p>
         </div>

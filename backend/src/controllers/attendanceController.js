@@ -2,6 +2,7 @@ import Attendance from '../models/Attendance.js';
 import Student from '../models/Student.js';
 import { getCache, setCache, deleteUserCache } from '../services/redisCacheService.js';
 import { checkGeofence, getGeofence } from '../services/geofenceService.js';
+import { istDateKey, istDayRange, formatIstTime12 } from '../utils/istDate.js';
 
 /**
  * Get attendance statistics and records for authenticated student
@@ -32,10 +33,8 @@ export const getStudentAttendance = async (req, res) => {
       ? Math.round((attendedClasses / totalClasses) * 100) 
       : 100;
 
-    // Check if attendance has already been punched today
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    // Check if attendance has already been punched today (in IST)
+    const { start: todayStart, end: todayEnd } = istDayRange(new Date());
 
     const todayRecord = records.find(r => {
       const d = new Date(r.date);
@@ -49,7 +48,7 @@ export const getStudentAttendance = async (req, res) => {
     // Group by Month (e.g., '2026-11')
     const monthlyMap = {};
     for (const record of records) {
-      const monthKey = new Date(record.date).toISOString().slice(0, 7);
+      const monthKey = istDateKey(record.date).slice(0, 7);
       if (!monthlyMap[monthKey]) {
         monthlyMap[monthKey] = {
           month: monthKey,
@@ -159,16 +158,7 @@ export const punchAttendance = async (req, res) => {
       : undefined;
 
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    const formatTime12 = (d) => {
-      let h = d.getHours();
-      const m = String(d.getMinutes()).padStart(2, '0');
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      return `${h}:${m} ${ampm}`;
-    };
+    const { start: todayStart, end: todayEnd } = istDayRange(now);
 
     const calcDuration = (startStr, endStr) => {
       try {
@@ -194,7 +184,7 @@ export const punchAttendance = async (req, res) => {
       }
     };
 
-    const currentTimeStr = formatTime12(now);
+    const currentTimeStr = formatIstTime12(now);
 
     // Look for existing attendance record for today
     let existing = await Attendance.findOne({
@@ -385,7 +375,7 @@ export const getAdminAttendanceOverview = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      date: startOfDay.toISOString().slice(0, 10),
+      date: istDateKey(startOfDay),
       summary: {
         totalStudents,
         presentToday,

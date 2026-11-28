@@ -1,4 +1,4 @@
-let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lms-demo-gtk4.onrender.com/api';
+let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lmsoffline.jainscomputer.com/api';
 
 if (typeof window !== 'undefined') {
   const host = window.location.hostname;
@@ -10,7 +10,7 @@ if (typeof window !== 'undefined') {
     apiUrl = `http://${host}:5000/api`;
   } else if (!isLocalhost && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
     // Force the production backend URL if the app is hosted live but the env variable was baked as localhost
-    apiUrl = 'https://lms-demo-gtk4.onrender.com/api';
+    apiUrl = 'https://lmsoffline.jainscomputer.com/api';
   }
 }
 
@@ -228,4 +228,13 @@ export const fetchApi = async (endpoint, options = {}) => {
   }
 
   return response;
+};
+
+// Course thumbnails stored by the admin panel come back from the API as a short
+// "/courses/:id/thumbnail?v=..." path (the image is served separately and cached).
+// External http(s) URLs are returned untouched.
+export const resolveCourseThumbnail = (thumb) => {
+  if (!thumb) return "";
+  if (thumb.startsWith("/courses/")) return `${API_URL}${thumb}`;
+  return thumb;
 };

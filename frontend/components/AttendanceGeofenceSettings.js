@@ -47,7 +47,7 @@ export default function AttendanceGeofenceSettings({ onNotice }) {
     setDetecting(true);
     setDetectInfo("");
     try {
-      const { latitude, longitude, accuracy } = await getCurrentLocation({ timeout: 20000 });
+      const { latitude, longitude, accuracy } = await getCurrentLocation({ timeout: 20000, goodAccuracy: 15 });
       setForm((f) => ({ ...f, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
       setDetectInfo(
         accuracy > 100

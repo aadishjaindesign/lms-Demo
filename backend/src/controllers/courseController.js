@@ -4,44 +4,57 @@ import CourseAccess from '../models/CourseAccess.js';
 import { r2Client } from '../config/r2.js';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { cloudinary } from '../config/cloudinary.js';
+import mongoose from 'mongoose';
+import { publicThumbnail, decodeThumbnail, isThumbnailPath } from '../utils/courseThumbnail.js';
 
 export const getCourses = async (req, res) => {
   try {
-    let matchQuery = {};
+    const matchQuery = {};
     if (req.user?.role !== 'admin') {
       matchQuery.status = 'active';
     }
 
-    const courses = await Course.aggregate([
-      { $match: matchQuery },
-      {
-        $lookup: {
-          from: 'videos',
-          localField: '_id',
-          foreignField: 'courseId',
-          as: 'videos'
-        }
-      },
-      {
-        $addFields: {
-          videoCount: { $size: '$videos' }
-        }
-      },
-      {
-        $project: {
-          videos: 0 // Do not send full video array to reduce payload
-        }
-      },
-      { $sort: { createdAt: -1 } }
+    // Two cheap queries in parallel instead of a $lookup that pulled every video
+    // document into memory just to count them. Video counts use the courseId index.
+    const [courses, videoCounts] = await Promise.all([
+      Course.find(matchQuery).sort({ createdAt: -1 }).lean(),
+      Video.aggregate([{ $group: { _id: '$courseId', count: { $sum: 1 } } }]),
     ]);
 
-    // Format _id back to id if needed (optional, typically Mongoose returns _id for aggregate)
-    // Wait, let's keep it as is, the frontend uses _id
+    const countByCourse = new Map(videoCounts.map((v) => [String(v._id), v.count]));
 
-    res.status(200).json(courses);
+    res.status(200).json(courses.map((course) => ({
+      ...course,
+      thumbnail: publicThumbnail(course),
+      videoCount: countByCourse.get(String(course._id)) || 0,
+    })));
   } catch (error) {
     console.error("Error fetching courses:", error);
     res.status(500).json({ error: 'Failed to fetch courses' });
+  }
+};
+
+// Public image endpoint for thumbnails stored as data URLs. Cached for a year by the
+// browser; the ?v= query (course.updatedAt) changes whenever the course is edited.
+export const getCourseThumbnail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(404).end();
+
+    const course = await Course.findById(id).select('thumbnail').lean();
+    const decoded = decodeThumbnail(course?.thumbnail);
+    if (!decoded) return res.status(404).end();
+
+    res.set({
+      'Content-Type': decoded.contentType,
+      'Content-Length': decoded.buffer.length,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    });
+    res.status(200).send(decoded.buffer);
+  } catch (error) {
+    console.error("Error serving course thumbnail:", error);
+    res.status(500).end();
   }
 };
 
@@ -50,6 +63,7 @@ export const getCourseById = async (req, res) => {
     const { id } = req.params;
     const course = await Course.findById(id).lean();
     if (!course) return res.status(404).json({ error: 'Course not found' });
+    course.thumbnail = publicThumbnail(course);
 
     if (req.user?.role !== 'admin' && course.status === 'inactive') {
       return res.status(403).json({ error: 'Course is not available' });
@@ -82,14 +96,17 @@ export const createCourse = async (req, res) => {
 export const updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+    // The edit form gets the short /courses/:id/thumbnail path from the list API; if it
+    // comes back unchanged, keep the stored image instead of overwriting it with the path.
+    if (isThumbnailPath(updateData.thumbnail)) delete updateData.thumbnail;
 
     // Status update is now allowed from this general update route
 
-    const course = await Course.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+    const course = await Course.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).lean();
     if (!course) return res.status(404).json({ error: 'Course not found' });
 
-    res.status(200).json(course);
+    res.status(200).json({ ...course, thumbnail: publicThumbnail(course) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update course' });
   }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function StudentAvatar({ src, name = "Akhil Yadav", size = "w-12 h-12" }) {
+export default function StudentAvatar({ src, name = "", size = "w-12 h-12" }) {
   const [imgError, setImgError] = useState(false);
 
   // If image fails or not provided, render modern illustrated profile with cap

@@ -34,6 +34,127 @@ export default function VideoPlayer({ src, poster, isHls, onDuration, onFallback
   const isRetryingRef = useRef(false);
   const MAX_RETRIES = 5;
 
+  // ---------------------------------------------------------------------------
+  // Pinch-to-zoom + pan on the video, and landscape lock in fullscreen (Android).
+  // ---------------------------------------------------------------------------
+  const zoomRef = useRef({ scale: 1, x: 0, y: 0 });
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  const applyZoom = (scale, x, y) => {
+    const player = playerRef.current;
+    if (!player || player.isDisposed()) return;
+    const el = player.el();
+    const tech = el.querySelector(".vjs-tech");
+    if (!tech) return;
+    const s = Math.min(4, Math.max(1, scale));
+    // Keep the video covering the frame: it can't be dragged past its own edges.
+    const maxX = ((s - 1) * el.clientWidth) / 2;
+    const maxY = ((s - 1) * el.clientHeight) / 2;
+    const cx = s === 1 ? 0 : Math.min(maxX, Math.max(-maxX, x));
+    const cy = s === 1 ? 0 : Math.min(maxY, Math.max(-maxY, y));
+    zoomRef.current = { scale: s, x: cx, y: cy };
+    tech.style.transform = s === 1 ? "" : `translate(${cx}px, ${cy}px) scale(${s})`;
+    setZoomLevel(Math.round(s * 10) / 10);
+  };
+
+  const resetZoom = () => applyZoom(1, 0, 0);
+
+  // Reset zoom when the lecture changes
+  useEffect(() => {
+    zoomRef.current = { scale: 1, x: 0, y: 0 };
+    setZoomLevel(1);
+  }, [src]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!playerNode || !player || player.isDisposed()) return;
+    const el = playerNode;
+
+    // Touches on the control bar / menus keep their normal behaviour (seek, volume, quality…)
+    const onControls = (target) => target && target.closest && target.closest(".vjs-control-bar, .vjs-menu, .vjs-menu-content, button");
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+    let pinch = null; // { startDist, startScale }
+    let pan = null;   // { startX, startY, x, y }
+
+    const onTouchStart = (e) => {
+      if (onControls(e.target)) return;
+      if (e.touches.length === 2) {
+        pan = null;
+        pinch = { startDist: dist(e.touches), startScale: zoomRef.current.scale };
+      } else if (e.touches.length === 1 && zoomRef.current.scale > 1) {
+        pan = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, x: zoomRef.current.x, y: zoomRef.current.y };
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (pinch && e.touches.length === 2) {
+        e.preventDefault(); // stop the browser from zooming the whole page
+        const scale = pinch.startScale * (dist(e.touches) / pinch.startDist);
+        applyZoom(scale, zoomRef.current.x, zoomRef.current.y);
+      } else if (pan && e.touches.length === 1) {
+        e.preventDefault(); // stop page scroll while dragging the zoomed video
+        const t = e.touches[0];
+        applyZoom(zoomRef.current.scale, pan.x + (t.clientX - pan.startX), pan.y + (t.clientY - pan.startY));
+      }
+    };
+
+    const onTouchEnd = (e) => {
+      if (e.touches.length < 2) pinch = null;
+      if (e.touches.length === 0) pan = null;
+      if (zoomRef.current.scale < 1.05) applyZoom(1, 0, 0);
+    };
+
+    // Laptop trackpad pinch arrives as ctrl+wheel; Ctrl+scroll with a mouse works the same way.
+    const onWheel = (e) => {
+      if (!e.ctrlKey || onControls(e.target)) return;
+      e.preventDefault();
+      const { scale, x, y } = zoomRef.current;
+      applyZoom(scale * Math.exp(-e.deltaY * 0.01), x, y);
+    };
+
+    // Fullscreen: turn the phone to landscape for normal (wide) videos, back to portrait on exit.
+    // screen.orientation.lock only works in fullscreen on Android Chrome; elsewhere it is ignored.
+    const onFullscreenChange = () => {
+      const orientation = typeof screen !== "undefined" ? screen.orientation : null;
+      if (player.isFullscreen()) {
+        const tech = el.querySelector("video");
+        const isPortraitVideo = tech && tech.videoHeight > tech.videoWidth;
+        if (orientation && orientation.lock && !isPortraitVideo) {
+          orientation.lock("landscape").catch(() => {});
+        }
+      } else {
+        if (orientation && orientation.unlock) {
+          try { orientation.unlock(); } catch (_) {}
+        }
+        applyZoom(1, 0, 0);
+      }
+    };
+
+    const onResize = () => {
+      const { scale, x, y } = zoomRef.current;
+      if (scale > 1) applyZoom(scale, x, y); // re-clamp pan limits after rotation
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    player.on("fullscreenchange", onFullscreenChange);
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+      el.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", onResize);
+      if (!player.isDisposed()) player.off("fullscreenchange", onFullscreenChange);
+    };
+  }, [playerNode]);
+
   // Clear error state whenever the video source changes
   useEffect(() => {
     setErrorState(null);

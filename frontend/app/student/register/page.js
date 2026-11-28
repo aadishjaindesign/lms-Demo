@@ -24,7 +24,7 @@ export default function StudentRegisterPage() {
         {/* Header */}
         <div className="p-8 bg-black/40 border-b border-white/10">
           <div className="flex items-center justify-center mb-4">
-            <img src="/logo@2x.png" alt="Logo" className="h-10 sm:h-12 object-contain" />
+            <img src="/logo-white@2x.png" alt="Logo" className="h-10 sm:h-12 object-contain" />
           </div>
           <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 bg-amber-950/60 border border-amber-500/30 px-3 py-1 rounded-full inline-block mb-3">
             Registration Restricted
